@@ -8,7 +8,6 @@
 #include <fcntl.h>
 #include <sys/time.h>
 #include <sys/select.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -20,14 +19,12 @@
 #include <netdb.h>
 #include <ctype.h>
 
-#include <fap.h>
-#include <iniparser.h>
-
 #include "ui.h"
 #include "util.h"
 #include "serial.h"
-#include "nmea.h"
+#include "aprs.h"
 #include "aprs-is.h"
+#include "aprs-ax25.h"
 
 #ifndef BUILD
 #define BUILD 0
@@ -37,116 +34,9 @@
 #define REVISION "Unknown"
 #endif
 
-#define MYPOS(s) (&(s)->mypos[(s)->mypos_idx])
 #define OBJNAME(p) ((p)->object_or_item_name ? (p)->object_or_item_name : \
 		    (p)->src_callsign)
 
-#define KEEP_PACKETS 8
-#define KEEP_POSITS  4
-
-#define DO_TYPE_NONE 0
-#define DO_TYPE_WX   1
-#define DO_TYPE_PHG  2
-
-#define TZ_OFFSET (-8)
-
-struct smart_beacon_point {
-	float int_sec;
-	float speed;
-};
-
-struct state {
-	struct {
-		char *tnc;
-		int tnc_rate;
-		char *gps;
-		int gps_rate;
-		char *tel;
-		int tel_rate;
-
-		char *tnc_type;
-		char *gps_type;
-		int testing;
-		int verbose;
-		char *icon;
-
-		char *digi_path;
-
-		int power;
-		int height;
-		int gain;
-		int directivity;
-
-		int atrest_rate;
-		struct smart_beacon_point sb_low;
-		struct smart_beacon_point sb_high;
-		int course_change_min;
-		int course_change_slope;
-		int after_stop;
-
-		unsigned int do_types;
-
-		char **comments;
-		int comments_count;
-
-		char *config;
-
-		double static_lat, static_lon, static_alt;
-		double static_spd, static_crs;
-
-		char *init_kiss_cmd;
-
-		char *digi_alias;
-		int digi_enabled;
-		int digi_append;
-		int digi_delay;
-
-		struct sockaddr display_to;
-
-		unsigned int aprsis_range;
-	} conf;
-
-	struct posit mypos[KEEP_POSITS];
-	int mypos_idx;
-
-	struct posit last_beacon_pos;
-
-	struct {
-		double temp1;
-		double voltage;
-
-		time_t last_tel_beacon;
-		time_t last_tel;
-	} tel;
-
-	char *mycall;
-
-	int tncfd;
-	int gpsfd;
-	int telfd;
-	int dspfd;
-
-	fap_packet_t *last_packet; /* In case we don't store it below */
-	fap_packet_t *recent[KEEP_PACKETS];
-	int recent_idx;
-	int disp_idx;
-
-	char gps_buffer[128];
-	int gps_idx;
-	time_t last_gps_update;
-	time_t last_gps_data;
-	time_t last_beacon;
-	time_t last_time_set;
-	time_t last_moving;
-	time_t last_status;
-
-	fap_packet_t *last_wx;
-
-	int comment_idx;
-	int other_beacon_idx;
-
-	uint8_t digi_quality;
-};
 
 int send_kiss_beacon(int fd, char *packet)
 {
@@ -154,7 +44,7 @@ int send_kiss_beacon(int fd, char *packet)
 	int ret;
 	unsigned int len = sizeof(buf);
 
-	printf("Sending Packet: %s\n", packet);
+	printf("Sending KISS Packet: %s\n", packet);
 
 	ret = fap_tnc2_to_kiss(packet, strlen(packet), 0, buf, &len);
 	if (!ret) {
@@ -174,12 +64,26 @@ int send_net_beacon(int fd, char *packet)
 	return ret == (strlen(packet) + 2);
 }
 
+/*
+ * Send beacon packet out one of the interfaces serial, ax.25 or
+ * network stack
+ */
 int send_beacon(struct state *state, char *packet)
 {
-	if (STREQ(state->conf.tnc_type, "KISS"))
+	if (STREQ(state->conf.tnc_type, "KISS")) {
 		return send_kiss_beacon(state->tncfd, packet);
-	else
+	} else if (STREQ(state->conf.tnc_type, "AX25")) {
+#ifdef HAVE_AX25_TRUE
+		return send_ax25_beacon(state, packet);
+#else
+		printf("%s:%s(): tnc type has been configured to use AX.25 but AX.25 lib has not been installed.\n",
+		       __FILE__, __FUNCTION__);
+		return 0;
+#endif /* #ifdef HAVE_AX25_TRUE */
+
+	} else {
 		return send_net_beacon(state->tncfd, packet);
+	}
 }
 
 int _ui_send(struct state *state, const char *name, const char *value)
@@ -376,8 +280,8 @@ void update_recent_wx(struct state *state)
 
 	if (fap->latitude && fap->longitude) {
 		distance = KPH_TO_MPH(fap_distance(mypos->lon, mypos->lat,
-						   *fap->longitude,
-						   *fap->latitude));
+			*fap->longitude,
+			*fap->latitude));
 		dir = direction(get_direction(mypos->lon, mypos->lat,
 					      *fap->longitude,
 					      *fap->latitude));
@@ -398,7 +302,7 @@ void update_recent_wx(struct state *state)
 			       format_time(time(NULL) - *fap->timestamp));
 	if (ret != -1) {
 		_ui_send(state, "WX_DIST", dist);
-			free(dist);
+		free(dist);
 	}
 	_ui_send(state, "WX_NAME", OBJNAME(fap));
 	_ui_send(state, "WX_ICON", "/W");
@@ -435,15 +339,15 @@ void display_wx(struct state *state, fap_packet_t *fap)
 
 	if (fap->latitude && fap->longitude)
 		distance = KPH_TO_MPH(fap_distance(mypos->lon, mypos->lat,
-						   *fap->longitude,
-						   *fap->latitude));
+			*fap->longitude,
+			*fap->latitude));
 
 	if (state->last_wx &&
 	    state->last_wx->latitude && state->last_wx->longitude)
 		last_distance = \
-			KPH_TO_MPH(fap_distance(mypos->lon, mypos->lat,
-						*state->last_wx->longitude,
-						*state->last_wx->latitude));
+				KPH_TO_MPH(fap_distance(mypos->lon, mypos->lat,
+			*state->last_wx->longitude,
+			*state->last_wx->latitude));
 	else
 		last_distance = 9999999.0; /* Very far away, if unknown */
 
@@ -462,6 +366,9 @@ void display_wx(struct state *state, fap_packet_t *fap)
 		       last_distance,
 		       state->last_wx ? time(NULL) - *state->last_wx->timestamp : 0);
 		fap_free(state->last_wx);
+
+		pr_debug("display_wx(%d): %s\n", strlen(fap->orig_packet), fap->orig_packet);
+
 		state->last_wx = dan_parseaprs(fap->orig_packet,
 					       strlen(fap->orig_packet), 0);
 		state->last_wx->timestamp = malloc(sizeof(*fap->timestamp));
@@ -594,7 +501,7 @@ const char *find_heard_via(fap_packet_t *fap)
 	    (heard_index > 0))
 		heard_via = fap->path[heard_index - 1];
 
-	return heard_via;		
+	return heard_via;
 }
 
 void display_dist_and_dir(struct state *state, fap_packet_t *fap)
@@ -616,15 +523,15 @@ void display_dist_and_dir(struct state *state, fap_packet_t *fap)
 		snprintf(buf, sizeof(buf), "%s %2s <small>via %s</small>",
 			 dist,
 			 direction(get_direction(mypos->lon, mypos->lat,
-						 *fap->longitude,
-						 *fap->latitude)),
+			*fap->longitude,
+			*fap->latitude)),
 			 via);
 	else if (fap->latitude && fap->longitude && fap->altitude)
 		snprintf(buf, 512, "%s %2s (%4.0f ft)",
 			 dist,
 			 direction(get_direction(mypos->lon, mypos->lat,
-						 *fap->longitude,
-						 *fap->latitude)),
+			*fap->longitude,
+			*fap->latitude)),
 			 M_TO_FT(*fap->altitude));
 	_ui_send(state, "AI_DISTANCE", buf);
 }
@@ -666,11 +573,11 @@ int stored_packet_desc(fap_packet_t *fap, int index,
 			 "%i:%-9s <small>%3.0fmi %-2s</small>",
 			 index, OBJNAME(fap),
 			 KPH_TO_MPH(fap_distance(mylon, mylat,
-						 *fap->longitude,
-						 *fap->latitude)),
+			*fap->longitude,
+			*fap->latitude)),
 			 direction(get_direction(mylon, mylat,
-						 *fap->longitude,
-						 *fap->latitude)));
+			*fap->longitude,
+			*fap->latitude)));
 	else
 		snprintf(buf, len,
 			 "%i:%-9s <small>%s</small>",
@@ -742,12 +649,12 @@ int find_packet(struct state *state, fap_packet_t *fap)
 }
 
 #define SWAP_VAL(new, old, value)				\
-	do {							\
-		if (old->value && !new->value) {		\
-			new->value = old->value;		\
-			old->value = 0;				\
-		}						\
-	} while (0);
+    do {							\
+	    if (old->value && !new->value) {		\
+		    new->value = old->value;		\
+		    old->value = 0;				\
+	    }						\
+    } while (0);
 
 int merge_packets(fap_packet_t *new, fap_packet_t *old)
 {
@@ -851,8 +758,8 @@ int should_digi_packet(struct state *state, fap_packet_t *fap)
 
 	/* We digi if the first element of the path is our digi_alias */
 	return ((fap->path_len > 0) &&
-		fap->path && fap->path[0] &&
-		STRNEQ(fap->path[0], state->conf.digi_alias, len));
+		  fap->path && fap->path[0] &&
+		  STRNEQ(fap->path[0], state->conf.digi_alias, len));
 }
 
 int digi_packet(struct state *state, fap_packet_t *fap)
@@ -909,7 +816,17 @@ int handle_incoming_packet(struct state *state)
 
 	memset(packet, 0, len);
 
-	if (STREQ(state->conf.tnc_type, "KISS")) {
+	if (STREQ(state->conf.tnc_type, "AX25")) {
+		isax25 = 1;
+#ifdef HAVE_AX25_TRUE
+		ret = get_ax25packet(state, packet, &len);
+#else
+		printf("%s:%s(): tnc type has been configured to use AX.25 but AX.25 lib has not been installed.\n",
+		       __FILE__, __FUNCTION__);
+		return 0;
+#endif /* #ifdef HAVE_AX25_TRUE */
+
+	} else if (STREQ(state->conf.tnc_type, "KISS")) {
 		isax25 = 1;
 		ret = get_packet(state->tncfd, packet, &len);
 	} else {
@@ -919,7 +836,7 @@ int handle_incoming_packet(struct state *state)
 	if (!ret)
 		return -1;
 
-	printf("%s\n", packet);
+	printf(" %s\n", packet);
 	fap = dan_parseaprs(packet, len, isax25);
 	if (!fap->error_code) {
 		store_packet(state, fap);
@@ -968,25 +885,25 @@ int display_gps_info(struct state *state)
 	char timestr[32];
 	struct posit *mypos = MYPOS(state);
 	const char *status = mypos->qual != 0 ?
-		"Locked" :
-		"<span background='red'>INVALID</span>";
+			     "Locked" :
+			     "<span background='red'>INVALID</span>";
 
 	strftime(timestr, sizeof(timestr), "%H:%M:%S",
 		 localtime(&mypos->tstamp));
 
 	sprintf(buf, "%7.5f%c %8.5f%c   %s   %s: %2i sats",
-		fabs(mypos->lat), mypos->lat > 0 ? 'N' : 'S',
-		fabs(mypos->lon), mypos->lon > 0 ? 'E' : 'W',
-		timestr,
-		status,
-		mypos->sats);
+		  fabs(mypos->lat), mypos->lat > 0 ? 'N' : 'S',
+		  fabs(mypos->lon), mypos->lon > 0 ? 'E' : 'W',
+		  timestr,
+		  status,
+		  mypos->sats);
 	_ui_send(state, "G_LATLON", buf);
 
 	if (mypos->speed > 1.0)
 		sprintf(buf, "%.0f MPH %2s, Alt %.0f ft",
-			KTS_TO_MPH(mypos->speed),
-			direction(mypos->course),
-			M_TO_FT(mypos->alt));
+			  KTS_TO_MPH(mypos->speed),
+			  direction(mypos->course),
+			  M_TO_FT(mypos->alt));
 	else
 		sprintf(buf, "Stationary, Alt %.0f ft", M_TO_FT(mypos->alt));
 	_ui_send(state, "G_SPD", buf);
@@ -1224,7 +1141,7 @@ char *get_subst(struct state *state, char *key)
 	else if (STREQ(key, "sats"))
 		asprintf(&value, "%i", MYPOS(state)->sats);
 	else if (STREQ(key, "ver"))
-		asprintf(&value, "v0.1.%04i (%s)", BUILD, REVISION);
+		asprintf(&value, "v0.1.%04i (%s)", atoi(BUILD), REVISION);
 	else if (STREQ(key, "time")) {
 		strftime(timestr, sizeof(timestr), "%H:%M:%S", &tm);
 		value = strdup(timestr);
@@ -1316,30 +1233,30 @@ char *choose_data(struct state *state, char *req_icon)
 		comment = strdup("Error");
 
 	switch (state->other_beacon_idx++ % 3) {
-	case DO_TYPE_WX:
-		if ((state->conf.do_types & DO_TYPE_WX) &&
-		    (!HAS_BEEN(state->tel.last_tel, 30))) {
-			*req_icon = '_';
-			asprintf(&data,
-				 ".../...g...t%03.0f%s",
-				 state->tel.temp1,
-				 comment);
+		case DO_TYPE_WX:
+			if ((state->conf.do_types & DO_TYPE_WX) &&
+			    (!HAS_BEEN(state->tel.last_tel, 30))) {
+				*req_icon = '_';
+				asprintf(&data,
+					 ".../...g...t%03.0f%s",
+					 state->tel.temp1,
+					 comment);
+				break;
+			}
+		case DO_TYPE_PHG:
+			if (state->conf.do_types & DO_TYPE_PHG) {
+				asprintf(&data,
+					 "PHG%1d%1d%1d%1d%s",
+					 state->conf.power,
+					 state->conf.height,
+					 state->conf.gain,
+					 state->conf.directivity,
+					 comment);
+				break;
+			}
+		case DO_TYPE_NONE:
+			data = strdup(comment);
 			break;
-		}
-	case DO_TYPE_PHG:
-		if (state->conf.do_types & DO_TYPE_PHG) {
-			asprintf(&data,
-				 "PHG%1d%1d%1d%1d%s",
-				 state->conf.power,
-				 state->conf.height,
-				 state->conf.gain,
-				 state->conf.directivity,
-				 comment);
-			break;
-		}
-	case DO_TYPE_NONE:
-		data = strdup(comment);
-		break;
 	}
 
 	free(comment);
@@ -1422,8 +1339,8 @@ char *make_mice_beacon(struct state *state)
 
 	/* Units of speed and course hundreds of degrees */
 	spd_crs = 32 + \
-		(((int)mypos->speed % 10) * 10) + \
-		((int)mypos->course / 100);
+		  (((int)mypos->speed % 10) * 10) + \
+		  ((int)mypos->course / 100);
 
 	/* Course tens and units of degrees */
 	crs_tud = ((int)mypos->course % 100) + 28;
@@ -1512,17 +1429,38 @@ char *make_beacon(struct state *state, char *payload)
 	if (!payload)
 		payload = data = choose_data(state, &icon);
 
-	ret = asprintf(&packet,
-		       "%s>APZDMS,%s:!%s%c%s%c%s/A=%06i%s",
-		       state->mycall,
-		       state->conf.digi_path,
-		       _lat,
-		       state->conf.icon[0],
-		       _lon,
-		       icon,
-		       course_speed,
-		       (int)M_TO_FT(mypos->alt),
-		       payload);
+	if (STREQ(state->conf.tnc_type, "AX25")) {
+#ifdef HAVE_AX25_TRUE
+		/*  AX.25 builds it's own packet header src & dest
+		 *  address */
+		ret = asprintf(&packet,
+			       "!%s%c%s%c%s/A=%06i%s",
+			       _lat,
+			       state->conf.icon[0],
+			       _lon,
+			       icon,
+			       course_speed,
+			       (int)M_TO_FT(mypos->alt),
+			       payload);
+		pr_debug("%s:%s(): making beacon msg for AX.25 ret: 0x%02x, msg:%s\n",
+		       __FILE__, __FUNCTION__,ret, packet);
+#else
+		printf("%s:%s(): tnc type has been configured to use AX.25 but AX.25 lib has not been installed.\n",
+		       __FILE__, __FUNCTION__);
+#endif /* #ifdef HAVE_AX25_TRUE */
+	} else {
+		ret = asprintf(&packet,
+			       "%s>APZDMS,%s:!%s%c%s%c%s/A=%06i%s",
+			       state->mycall,
+			       state->conf.digi_path,
+			       _lat,
+			       state->conf.icon[0],
+			       _lon,
+			       icon,
+			       course_speed,
+			       (int)M_TO_FT(mypos->alt),
+			       payload);
+	}
 
 	free(data);
 
@@ -1549,7 +1487,7 @@ int should_beacon(struct state *state)
 	double speed_frac;
 	double d_speed = state->conf.sb_high.speed - state->conf.sb_low.speed;
 	double d_rate = state->conf.sb_low.int_sec -
-		state->conf.sb_high.int_sec;
+			state->conf.sb_high.int_sec;
 	double sb_thresh = sb_course_change_thresh(state);
 	double sb_change = fabs(state->last_beacon_pos.course - mypos->course);
 
@@ -1558,7 +1496,7 @@ int should_beacon(struct state *state)
 	/* If we went from a NW course to a NE course, the change will be large,
 	 * so correct it to the difference instead of assuming we always take
 	 * large right turns
-	*/
+	 */
 	if (sb_change > 180)
 		sb_change = 360.0 - sb_change;
 
@@ -1577,7 +1515,7 @@ int should_beacon(struct state *state)
 
 	/* Determine the fractional that we are slower than the max */
 	sb_min_delta = (d_rate * (1 - speed_frac)) +
-		state->conf.sb_high.int_sec;
+		       state->conf.sb_high.int_sec;
 
 	/* Never when we aren't getting data anymore */
 	if (HAS_BEEN(state->last_gps_data, 30)) {
@@ -1661,6 +1599,7 @@ int beacon(struct state *state)
 {
 	char *packet;
 	static time_t max_beacon_check = 0;
+	int ret;
 
 	/* Don't even check but every half-second */
 	if (!HAS_BEEN(max_beacon_check, 0.5))
@@ -1674,21 +1613,23 @@ int beacon(struct state *state)
 	if (MYPOS(state)->speed > 5) {
 		/* Send a short MIC-E position beacon */
 		packet = make_mice_beacon(state);
-		send_beacon(state, packet);
+		ret = send_beacon(state, packet);
 		free(packet);
 
 		if (HAS_BEEN(state->last_status, 120)) {
 			/* Follow up with a status packet */
 			packet = make_status_beacon(state);
-			send_beacon(state, packet);
+			ret = send_beacon(state, packet);
 			free(packet);
 			state->last_status = time(NULL);
 		}
 	} else {
 		packet = make_beacon(state, NULL);
-		send_beacon(state, packet);
+		ret = send_beacon(state, packet);
 		free(packet);
 	}
+
+	pr_debug("send_beacon ret=0x%02x\n", ret);
 
 	state->last_beacon = time(NULL);
 	state->digi_quality <<= 1;
@@ -1825,234 +1766,43 @@ int parse_opts(int argc, char **argv, struct state *state)
 			break;
 
 		switch(c) {
-		case 'h':
-			usage(argv[0]);
-			exit(1);
-		case 't':
-			state->conf.tnc = optarg;
-			break;
-		case 'g':
-			state->conf.gps = optarg;
-			break;
-		case 'T':
-			state->conf.tel = optarg;
-			break;
-		case 1:
-			state->conf.testing = 1;
-			break;
-		case 'v':
-			state->conf.verbose = 1;
-			break;
-		case 'c':
-			state->conf.config = optarg;
-			break;
-		case 'd':
-			lookup_host(state, optarg);
-			break;
-		case 'r':
-			state->conf.aprsis_range = \
-				(unsigned int)strtoul(optarg, NULL, 10);
-			break;
-		case '?':
-			printf("Unknown option\n");
-			return -1;
+			case 'h':
+				usage(argv[0]);
+				exit(1);
+			case 't':
+				state->conf.tnc = optarg;
+				break;
+			case 'g':
+				state->conf.gps = optarg;
+				break;
+			case 'T':
+				state->conf.tel = optarg;
+				break;
+			case 1:
+				state->conf.testing = 1;
+				break;
+			case 'v':
+				state->conf.verbose = 1;
+				break;
+			case 'c':
+				state->conf.config = optarg;
+				break;
+			case 'd':
+				lookup_host(state, optarg);
+				break;
+			case 'r':
+				state->conf.aprsis_range = \
+					(unsigned int)strtoul(optarg, NULL, 10);
+				break;
+			case '?':
+				printf("Unknown option\n");
+				return -1;
 		};
 	}
 
 	return 0;
 }
 
-char **parse_list(char *string, int *count)
-{
-	char **list;
-	char *ptr;
-	int i = 0;
-
-	for (ptr = string; *ptr; ptr++)
-		if (*ptr == ',')
-			i++;
-	*count = i+1;
-
-	list = calloc(*count, sizeof(char **));
-	if (!list)
-		return NULL;
-
-	for (i = 0; string; i++) {
-		ptr = strchr(string, ',');
-		if (ptr) {
-			*ptr = 0;
-			ptr++;
-		}
-		list[i] = strdup(string);
-		string = ptr;
-	}
-
-	return list;
-}
-
-char *process_tnc_cmd(char *cmd)
-{
-	char *ret;
-	char *a, *b;
-
-	ret = malloc(strlen(cmd) * 2);
-	if (ret < 0)
-		return NULL;
-
-	for (a = cmd, b = ret; *a; a++, b++) {
-		if (*a == ',')
-			*b = '\r';
-		else
-			*b = *a;
-	}
-
-	*b = '\0';
-
-	//printf("TNC command: `%s'\n", ret);
-
-	return ret;
-}
-
-int parse_ini(char *filename, struct state *state)
-{
-	dictionary *ini;
-	char *tmp;
-
-	ini = iniparser_load(filename);
-	if (ini == NULL)
-		return -EINVAL;
-
-	if (!state->conf.tnc)
-		state->conf.tnc = iniparser_getstring(ini, "tnc:port", NULL);
-	state->conf.tnc_rate = iniparser_getint(ini, "tnc:rate", 9600);
-	state->conf.tnc_type = iniparser_getstring(ini, "tnc:type", "KISS");
-
-	tmp = iniparser_getstring(ini, "tnc:init_kiss_cmd", "");
-	state->conf.init_kiss_cmd = process_tnc_cmd(tmp);
-
-	if (!state->conf.gps)
-		state->conf.gps = iniparser_getstring(ini, "gps:port", NULL);
-	state->conf.gps_type = iniparser_getstring(ini, "gps:type", "static");
-	state->conf.gps_rate = iniparser_getint(ini, "gps:rate", 4800);
-
-	if (!state->conf.tel)
-		state->conf.tel = iniparser_getstring(ini, "telemetry:port",
-						      NULL);
-	state->conf.tel_rate = iniparser_getint(ini, "telemetry:rate", 9600);
-
-	state->mycall = iniparser_getstring(ini, "station:mycall", "N0CAL-7");
-	state->conf.icon = iniparser_getstring(ini, "station:icon", "/>");
-
-	if (strlen(state->conf.icon) != 2) {
-		printf("ERROR: Icon must be two characters, not `%s'\n",
-		       state->conf.icon);
-		return -1;
-	}
-
-	state->conf.digi_path = iniparser_getstring(ini, "station:digi_path",
-						    "WIDE1-1,WIDE2-1");
-
-	state->conf.power = iniparser_getint(ini, "station:power", 0);
-	state->conf.height = iniparser_getint(ini, "station:height", 0);
-	state->conf.gain = iniparser_getint(ini, "station:gain", 0);
-	state->conf.directivity = iniparser_getint(ini, "station:directivity",
-						   0);
-
-	state->conf.atrest_rate = iniparser_getint(ini,
-						   "beaconing:atrest_rate",
-						   600);
-	state->conf.sb_low.speed = iniparser_getint(ini,
-						    "beaconing:min_speed",
-						    10);
-	state->conf.sb_low.int_sec = iniparser_getint(ini,
-						      "beaconing:min_rate",
-						      600);
-	state->conf.sb_high.speed = iniparser_getint(ini,
-						     "beaconing:max_speed",
-						     60);
-	state->conf.sb_high.int_sec = iniparser_getint(ini,
-						       "beaconing:max_rate",
-						       60);
-	state->conf.course_change_min = iniparser_getint(ini,
-						     "beaconing:course_change_min",
-						     30);
-	state->conf.course_change_slope = iniparser_getint(ini,
-							   "beaconing:course_change_slope",
-							   255);
-	state->conf.after_stop = iniparser_getint(ini,
-						  "beaconing:after_stop",
-						  180);
-
-	state->conf.static_lat = iniparser_getdouble(ini,
-						     "static:lat",
-						     0.0);
-	state->conf.static_lon = iniparser_getdouble(ini,
-						     "static:lon",
-						     0.0);
-	state->conf.static_alt = iniparser_getdouble(ini,
-						     "static:alt",
-						     0.0);
-	state->conf.static_spd = iniparser_getdouble(ini,
-						     "static:speed",
-						     0.0);
-	state->conf.static_crs = iniparser_getdouble(ini,
-						     "static:course",
-						     0.0);
-
-	state->conf.digi_alias = iniparser_getstring(ini, "digi:alias",
-						     "TEMP1-1");
-	state->conf.digi_enabled = iniparser_getint(ini, "digi:enabled", 0);
-	state->conf.digi_append = iniparser_getint(ini, "digi:append_path",
-						    0);
-	state->conf.digi_delay = iniparser_getint(ini, "digi:txdelay", 500);
-
-	tmp = iniparser_getstring(ini, "station:beacon_types", "posit");
-	if (strlen(tmp) != 0) {
-		char **types;
-		int count;
-		int i;
-
-		types = parse_list(tmp, &count);
-		if (!types) {
-			printf("Failed to parse beacon types\n");
-			return -EINVAL;
-		}
-
-		for (i = 0; i < count; i++) {
-			if (STREQ(types[i], "weather"))
-				state->conf.do_types |= DO_TYPE_WX;
-			else if (STREQ(types[i], "phg"))
-				state->conf.do_types |= DO_TYPE_PHG;
-			else
-				printf("WARNING: Unknown beacon type %s\n",
-				       types[i]);
-			free(types[i]);
-		}
-		free(types);
-	}
-
-	tmp = iniparser_getstring(ini, "comments:enabled", "");
-	if (strlen(tmp) != 0) {
-		int i;
-
-		state->conf.comments = parse_list(tmp,
-						  &state->conf.comments_count);
-		if (!state->conf.comments)
-			return -EINVAL;
-
-		for (i = 0; i < state->conf.comments_count; i++) {
-			char section[32];
-
-			snprintf(section, sizeof(section),
-				 "comments:%s", state->conf.comments[i]);
-			free(state->conf.comments[i]);
-			state->conf.comments[i] = iniparser_getstring(ini,
-								      section,
-								      "INVAL");
-		}
-	}
-	return 0;
-}
 
 int main(int argc, char **argv)
 {
@@ -2065,7 +1815,7 @@ int main(int argc, char **argv)
 
 	state.dspfd = -1;
 
-	printf("APRS v0.1.%04i (%s)\n", BUILD, REVISION);
+	printf("APRS v0.1.%04i (%s)\n", atoi(BUILD), REVISION);
 
 	fap_init();
 
@@ -2099,15 +1849,31 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 	} else if (STREQ(state.conf.tnc_type, "NET")) {
-		state.tncfd = aprsis_connect("oregon.aprs2.net", 14580,
+		pr_debug("tnc type is NET try aprsis_connect to %s\n", state.conf.net_server_host_addr);
+		state.tncfd = aprsis_connect(state.conf.net_server_host_addr, APRS_PORT_FILTERED_FEED,
 					     state.mycall,
 					     MYPOS(&state)->lat,
 					     MYPOS(&state)->lon,
 					     state.conf.aprsis_range);
-	} else
-		state.tncfd = -1;
+	} else if (STREQ(state.conf.tnc_type, "AX25")) {
+#ifdef HAVE_AX25_TRUE
+		state.tncfd = aprsax25_connect(&state);
+		pr_debug("tnc type is AX25 try aprsax25_connect to %s, socket=%d\n",
+		       state.conf.aprs_path, state.tncfd);
+#else
+		printf("%s:%s(): tracker tnc type has been configured to use AX.25 but AX.25 lib has not been installed.\n",
+		       __FILE__, __FUNCTION__);
+#endif /* #ifdef HAVE_AX25_TRUE */
 
-	handle_display_initkiss(&state);
+
+	} else {
+		state.tncfd = -1;
+		printf("WARNING: TNC is not configured.\n");
+	}
+
+	if (STREQ(state.conf.tnc_type, "KISS")) {
+		handle_display_initkiss(&state);
+	}
 
 	if (state.conf.gps) {
 		state.gpsfd = serial_open(state.conf.gps, state.conf.gps_rate, 0);
@@ -2130,6 +1896,7 @@ int main(int argc, char **argv)
 	state.disp_idx = -1;
 
 	_ui_send(&state, "AI_CALLSIGN", "HELLO");
+
 
 	while (1) {
 		int ret;

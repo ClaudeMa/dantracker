@@ -11,6 +11,8 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
+#include "aprs-is.h"
+
 static int aprsis_login(int fd, const char *call,
 			double lat, double lon, double range)
 {
@@ -92,17 +94,31 @@ int get_packet_text(int fd, char *buffer, unsigned int *len)
 }
 
 #ifdef MAIN
-int main()
+
+#include "util.h"
+#include "aprs.h"
+
+int main(int argc, char **argv)
 {
 	int sock;
-	double lat = 45.525;
-	double lon = -122.9164;
-	double range = 1500;
 	int ret;
 	char buf[256];
+	struct state state;
 
-	sock = aprsis_connect("oregon.aprs2.net", 14580, "KK7DS",
-			      lat, lon, range);
+	memset(&state, 0, sizeof(state));
+
+	if (parse_ini(state.conf.config ? state.conf.config : "aprs.ini", &state)) {
+		printf("Invalid config\n");
+		exit(1);
+	}
+
+	sock = aprsis_connect(state.conf.net_server_host_addr,
+			      APRS_PORT_FILTERED_FEED,
+			      state.mycall,
+			      MYPOS(&state)->lat,
+			      MYPOS(&state)->lon,
+			      state.conf.aprsis_range);
+
 	if (sock < 0) {
 		printf("Sock %i: %m\n", sock);
 		return 1;

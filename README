@@ -25,6 +25,9 @@ Extra Tools:
 
 Build dantracker with "make".
 
+copy one of the ini files from examples directory to same directory
+as aprs executable and rename to aprs.ini
+
 Stress-test by using examples/aprstest.ini (modified as appropriate), which
 will attempt to eat the entire APRS-IS world feed without crashing.
 

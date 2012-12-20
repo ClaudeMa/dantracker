@@ -787,6 +787,8 @@ int server_loop(struct opts *opts, struct layout *l)
 		return sock;
 
 	channel = g_io_channel_unix_new(sock);
+	/* read raw binary data without interpretation,
+	 * no conversation errors */
 	g_io_channel_set_encoding(channel, NULL, NULL);
 	g_io_add_watch_full(channel, 0, G_IO_IN, server_handle_c, l, NULL);
 
