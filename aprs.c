@@ -1,3 +1,4 @@
+/* -*- Mode: C; tab-width: 8;  indent-tabs-mode: nil; c-basic-offset: 8; c-brace-offset: -8; c-argdecl-indent: 8 -*- */
 /* Copyright 2012 Dan Smith <dsmith@danplanet.com> */
 
 #define _GNU_SOURCE
@@ -9,13 +10,11 @@
 #include <sys/time.h>
 #include <sys/select.h>
 #include <sys/stat.h>
-#include <sys/un.h>
 #include <unistd.h>
 #include <time.h>
 #include <math.h>
 #include <errno.h>
 #include <termios.h>
-#include <getopt.h>
 #include <netdb.h>
 #include <ctype.h>
 
@@ -1693,116 +1692,6 @@ int fake_gps_data(struct state *state)
 
 	return 0;
 }
-
-int lookup_host(struct state *state, const char *hostname)
-{
-	struct hostent *host;
-	struct sockaddr_in *sa = (struct sockaddr_in *)&state->conf.display_to;
-
-	host = gethostbyname(hostname);
-	if (!host) {
-		perror(hostname);
-		return -errno;
-	}
-
-	if (host->h_length < 1) {
-		fprintf(stderr, "No address for %s\n", hostname);
-		return -EINVAL;
-	}
-
-	sa->sin_family = AF_INET;
-	sa->sin_port = htons(SOCKPORT);
-	memcpy(&sa->sin_addr, host->h_addr_list[0], sizeof(sa->sin_addr));
-
-	return 0;
-}
-
-void usage(char *argv0)
-{
-	printf("Usage:\n"
-	       "%s [OPTS]\n"
-	       "Options:\n"
-	       "  --help, -h       This help message\n"
-	       "  --tnc, -t        Serial port for TNC\n"
-	       "  --gps, -g        Serial port for GPS\n"
-	       "  --telemetry, -T  Serial port for telemetry\n"
-	       "  --testing        Testing mode (faked speed, course, digi)\n"
-	       "  --verbose, -v    Log to stdout\n"
-	       "  --conf, -c       Configuration file to use\n"
-	       "  --display, -d    Host to use for display over INET socket\n"
-	       "  --netrange, -r   Range (miles) to use for APRS-IS filter\n"
-	       "\n",
-	       argv0);
-}
-
-int parse_opts(int argc, char **argv, struct state *state)
-{
-	static struct option lopts[] = {
-		{"help",      0, 0, 'h'},
-		{"tnc",       1, 0, 't'},
-		{"gps",       1, 0, 'g'},
-		{"telemetry", 1, 0, 'T'},
-		{"testing",   0, 0,  1 },
-		{"verbose",   0, 0, 'v'},
-		{"conf",      1, 0, 'c'},
-		{"display",   1, 0, 'd'},
-		{"netrange",  1, 0, 'r'},
-		{NULL,        0, 0,  0 },
-	};
-
-	state->conf.display_to.sa_family = AF_UNIX;
-	strcpy(((struct sockaddr_un *)&state->conf.display_to)->sun_path,
-	       SOCKPATH);
-
-	state->conf.aprsis_range = 100;
-
-	while (1) {
-		int c;
-		int optidx;
-
-		c = getopt_long(argc, argv, "ht:g:T:c:svd:r:",
-				lopts, &optidx);
-		if (c == -1)
-			break;
-
-		switch(c) {
-			case 'h':
-				usage(argv[0]);
-				exit(1);
-			case 't':
-				state->conf.tnc = optarg;
-				break;
-			case 'g':
-				state->conf.gps = optarg;
-				break;
-			case 'T':
-				state->conf.tel = optarg;
-				break;
-			case 1:
-				state->conf.testing = 1;
-				break;
-			case 'v':
-				state->conf.verbose = 1;
-				break;
-			case 'c':
-				state->conf.config = optarg;
-				break;
-			case 'd':
-				lookup_host(state, optarg);
-				break;
-			case 'r':
-				state->conf.aprsis_range = \
-					(unsigned int)strtoul(optarg, NULL, 10);
-				break;
-			case '?':
-				printf("Unknown option\n");
-				return -1;
-		};
-	}
-
-	return 0;
-}
-
 
 int main(int argc, char **argv)
 {

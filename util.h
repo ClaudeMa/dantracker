@@ -1,4 +1,9 @@
-/* Copyright 2012 Dan Smith <dsmith@danplanet.com> */
+/* -*- Mode: C; tab-width: 8;  indent-tabs-mode: nil; c-basic-offset: 8; c-brace-offset: -8; c-argdecl-indent: 8 -*- */
+
+/* dantracker aprs tracker
+ *
+ * Copyright 2012 Dan Smith <dsmith@danplanet.com>
+ */
 
 #ifndef __UTIL_H
 #define __UTIL_H
@@ -23,5 +28,7 @@
 const char *direction(double degrees);
 char *get_escaped_string(char *string);
 double get_direction(double fLng, double fLat, double tLng, double tLat);
+char*  time2str(time_t *ptime);
+char * strupper(char *s);
 
-#endif
+#endif /* __UTIL_H */
