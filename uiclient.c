@@ -1,3 +1,4 @@
+/* -*- Mode: C; tab-width: 8;  indent-tabs-mode: nil; c-basic-offset: 8; c-brace-offset: -8; c-argdecl-indent: 8 -*- */
 /* Copyright 2012 Dan Smith <dsmith@danplanet.com> */
 
 #include <unistd.h>
@@ -128,34 +129,123 @@ char *ui_get_msg_valu(struct ui_msg *msg)
 }
 
 #ifdef MAIN
+#include <getopt.h>
 #include <sys/un.h>
+#include <netdb.h>
 #include <netinet/in.h>
 
-int ui_send_default(const char *name, const char *value)
+#include "util.h"
+
+struct opts {
+	int addr_family;
+	char name[64];
+	char value[64];
+};
+
+int parse_opts(int argc, char **argv, struct opts *opts)
 {
-	if (getenv("INET")) {
+	int retval = 1;
+
+	static struct option lopts[] = {
+		{"window",    0, 0, 'w'},
+		{"inet",      0, 0, 'i'},
+		{NULL,        0, 0,  0 },
+	};
+
+	memset(opts, 0, sizeof(opts));
+
+	/* Set default options */
+	opts->addr_family = AF_INET;
+	strcpy(opts->name, "AI_CALLSIGN");
+	strcpy(opts->value, "DEFAULT");
+
+	while (1) {
+		int c;
+		int optidx;
+
+		c = getopt_long(argc, argv, "wi", lopts, &optidx);
+		if (c == -1)
+			break;
+
+		switch(c) {
+			case 'w':
+				opts->addr_family = AF_UNIX;
+				break;
+			case 'i':
+				opts->addr_family = AF_INET;
+		}
+	}
+
+	/*
+	 * Set positional args
+	 */
+	/* get the NAME */
+	if(optind < argc) {
+		strcpy(opts->name, argv[optind]);
+		strupper(opts->name);
+		optind++;
+	}
+
+	/* get the VALUE */
+	if(optind < argc) {
+		strcpy(opts->value, argv[optind]);
+		optind++;
+	}
+
+	if(argc == 1)
+		retval = 0;
+	else if(argc < 4)
+		printf("Using defaults\n");
+
+	return (retval);
+}
+
+int ui_send_default(struct opts *opts)
+{
+
+	if(opts->addr_family == AF_INET) {
+		printf("using AF_INET\n");
+		char hostname[]="127.0.0.1";
 		struct sockaddr_in sin;
+		struct hostent *host;
+
 		sin.sin_family = AF_INET;
 		sin.sin_port = htons(SOCKPORT);
-		sin.sin_addr.s_addr = 0x7F000001; /* 127.0.0.1 */
+
+		host = gethostbyname(hostname);
+		if (!host) {
+			perror(hostname);
+			return -errno;
+		}
+
+		if (host->h_length < 1) {
+			fprintf(stderr, "No address for %s\n", hostname);
+			return -EINVAL;
+		}
+		memcpy(&sin.sin_addr, host->h_addr_list[0], sizeof(sin.sin_addr));
+
 		return ui_send_to((struct sockaddr *)&sin, sizeof(sin),
-				  name, value);
+				  opts->name, opts->value);
 	} else {
+		printf("using AF_UNIX\n");
 		struct sockaddr_un sun;
 		sun.sun_family = AF_UNIX;
 		strcpy(sun.sun_path, SOCKPATH);
 		return ui_send_to((struct sockaddr *)&sun, sizeof(sun),
-				  name, value);
+				  opts->name, opts->value);
 	}
 }
 
 int main(int argc, char **argv)
 {
-	if (argc != 3) {
-		printf("Usage: %s [NAME] [VALUE]\n", argv[0]);
+	struct opts opts;
+
+	if(!parse_opts(argc, argv, &opts)) {
+		printf("Usage: %s -<i><w> [NAME] [VALUE]\n", argv[0]);
 		return 1;
 	}
+	printf("%d, %s %s\n", opts.addr_family, opts.name, opts.value);
 
-	return ui_send_default(argv[1], argv[2]);
+	return ui_send_default(&opts);
 }
 #endif

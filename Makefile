@@ -28,11 +28,12 @@ ifeq ($(DEBUG_ON), YES)
 CFLAGS+=-DDEBUG
 endif
 
+.PHONY :  images clean sync
 
-all: $(TARGETS)
+all : $(TARGETS) images
 
 aprs.o: aprs.c uiclient.c serial.c nmea.c aprs-is.c aprs-ax25.c conf.c util.o util.h aprs.h Makefile
-uiclient.o: uiclient.c ui.h
+uiclient.o: uiclient.c ui.h util.c util.h Makefile
 aprs-is.o: aprs-is.c conf.c util.c aprs-is.h util.h aprs.h Makefile
 aprs-ax25.o: aprs-ax25.c aprs-ax25.h aprs.h conf.c util.c aprs-is.h util.h Makefile
 serial.o: serial.c serial.h
@@ -50,8 +51,8 @@ aprs: aprs.o uiclient.o nmea.o aprs-is.o serial.o aprs-ax25.o conf.o util.o
 ui: ui.c uiclient.o
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) $(GLIB_CFLAGS) $^ -o $@ $(GTK_LIBS) $(GLIB_LIBS)
 
-uiclient: uiclient.c ui.h
-	$(CC) $(CFLAGS) -DMAIN $< -o $@
+uiclient: uiclient.c ui.h util.c util.h
+	$(CC) $(CFLAGS) -DMAIN $< -o $@ util.o -lm $(LIBS)
 
 aprs-is: aprs-is.c conf.o util.o util.h aprs-is.h aprs.h
 	$(CC) $(CFLAGS) -DMAIN  $< -o $@ conf.o util.o -lm $(LIBS)
@@ -62,8 +63,11 @@ aprs-ax25: aprs-ax25.c conf.o util.o util.h aprs-is.h aprs-ax25.h aprs.h
 fakegps: fakegps.c
 	$(CC) $(CFLAGS) -lm -o $@ $< -lm
 
+images:
+	$(MAKE) -C images
+
 clean:
-	rm -f $(TARGETS) *.o *~
+	rm -f $(TARGETS) *.o *~ ./images/*_big.png
 
 sync:
 	scp -r *.c *.h Makefile tools images .revision .build $(DEST)

@@ -1,3 +1,6 @@
+Pre-installation requirements
+=============================
+
 Dependencies:
 
 libfap:
@@ -23,11 +26,44 @@ ax25 - optional:
 Extra Tools:
   pkg-config
 
-Build dantracker with "make".
 
-copy one of the ini files from examples directory to same directory
+Basic Installation
+==================
+
+`cd' to the directory containing the source code and type
+`make' to compile, link & create png image files.
+
+Running dantracker
+==================
+Copy one of the ini files from examples directory to same directory
 as aprs executable and rename to aprs.ini
 
 Stress-test by using examples/aprstest.ini (modified as appropriate), which
 will attempt to eat the entire APRS-IS world feed without crashing.
 
+
+Test Programs
+-------------
+
+Test stand alone programs displaying to console.
+
+./aprs-is
+./aprs-ax25
+
+Test display interface.
+
+Using socket connect with AF_INET
+./ui -i with ./uiclient -i [NAME] [VALUE]
+
+Using socket connect wit AF_UNIX
+./ui -w with ./uiclient -w [NAME] [VALUE]
+
+
+Normal operation
+----------------
+
+UI socket connect via AF_INET
+./ui -i with ./aprs -d 127.0.0.1
+
+UI socket connect via AF_UNIX
+./ui -w with ./aprs
