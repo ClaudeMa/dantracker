@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+
+    <head>
+        <meta charset="utf-8">
+        <title>WebSockets - Aprs</title>
+
+        <style>
+        * { font-family:tahoma; font-size:12px; padding:0px; margin:0px; }
+        p { line-height:18px; }
+        div { width:500px; margin-left:auto; margin-right:auto;}
+        #myHeader { background: #fff; color: #fff; margin-bottom: 15px; width: 100%;}
+
+        #content { padding:5px; background-color:CornflowerBlue; border-radius:5px;
+                   border:1px solid #CCC; margin-top:10px; }
+        #input { border-radius:2px; border:1px solid #ccc;
+                 margin-top:10px; padding:5px; width:400px;  }
+        #status { width:88px; display:block; float:left; margin-top:15px; }
+
+        #aprscurrent { padding:5px; background-color:LightGreen;
+                       margin-top:10px; width: 500px; border:2px solid black;}
+
+        #aprswin1 { padding:5px; background:LightGreen; margin-top:10px; }
+
+        #history { padding:5px; background-color:LightGreen; border-radius:5px;
+                   margin-top:2px; border:2px solid black; height: 85px }
+	#histwin2_1 { float: left;  padding:5px; border-radius:5px;
+                    margin-top:3px; margin-bottom:5px; }
+	#histwin2_2 { float: right;  padding:5px; border-radius:5px;
+                    margin-top:3px; }
+
+	#gpswin { padding:4px; background: MediumSeaGreen; border-radius:5px; margin-top:2px;
+		    font: Helvetica 12pt;border: 1px solid black; }
+        #gpswin1 { padding:5px; margin-top:4px; }
+
+        #aprsWx { padding:4px; background-color: SeaGreen; border-radius:5px; width: 500px; margin-top:2px; border:2px solid black; }
+        #aprsweather { padding:4px; margin-top:4px; }
+
+        #aprsstats { padding:5px; background-color: white; border-radius:5px;
+                   border:1px solid #CCC; margin-top:10px; }
+
+        #aprsdebugwin { padding:5px; background-color: background-color: white; border-radius:5px;
+                   border:1px solid #CCC; margin-top:10px; }
+        #aprsdebugwin2 { padding:5px; background-color:RoyalBlue; border-radius:5px;
+                   border:1px solid #CCC; margin-top:10px; }
+	#horizwrapper {   margin: 0 auto ; width: 500px;}
+
+.post
+{
+    float: left;
+    width: 200px;
+    margin-left: 10px;
+}
+
+.clear-both {
+   clear: both;
+}
+        </style>
+    </head>
+    <body>
+    <div id="myHeader">
+       <p> </p>
+       <p> </p>
+    </div>
+
+    <div  id="aprscurrent" style="overflow: hidden;">
+       <div style="float: left; width:350px;" id="aprswin1">
+       </div>
+       <div> <canvas id="canwin1" style="float: right;
+       width:125px; height:80px;">
+          </canvas>
+       </div>
+    </div>
+    <div  id="history"
+       style="overflow: hidden;">
+       <div style="float: left; width:237px;"
+               id="histwin2_1">
+       </div>
+       <div style="float: right; width:237px;"
+               id="histwin2_2">
+       </div>
+    </div>
+
+    <div id="gpswin"
+      style="overflow: hidden; border:2px solid black;" >
+       <div style="float: left; width:350px;" id="gpswin1">
+       </div>
+       <div> <canvas id="gpswin2" style="float: right;
+       width:125px; height:85px;">
+          </canvas>
+       </div>
+    </div>
+
+    <div  id="aprsWx"
+       style="overflow: hidden;">
+
+       <div style="float: left; width:350px;" id="aprsweather">
+       </div>
+       <div> <canvas id="canwin2" style="float: right;
+       width:125px; height:80px;">
+          </canvas>
+       </div>
+    </div>
+
+    <div style="border:2px solid black;overflow-x:hidden;overflow-y:scroll; height: 80px"
+            id="content">
+    </div>
+    <div style="padding:10px;">
+       <span style="padding:5px; margin-right:5px;" >ACK message</span>
+       <input type="checkbox" name="msg_ack_check" id="msgack_checkbox"></input>
+
+    <span style="padding:5px; margin-left:35px;">From callsign:</span>
+    <input size="8" type="text" id="callsign_from" disabled="disabled"</input>
+
+ <span style="padding:5px; margin-left:35px;">To callsign:</span>
+ <input size="9" type="text" id="callsign_to" disabled="disabled" />
+    </div>
+    <div>
+       <span id="status">Connecting...</span>
+       <input type="text" id="input" disabled="disabled" />
+    </div>
+
+    <div id="aprsstats" name="statwin1" title="Statistics Window"
+      style="border: 1px solid black; font: Helvetica 12pt;">
+
+       <table border="0" cellspacing=3 cellpadding="3" width="100%">
+          <TR>
+             <TD>Total</TD>
+             <TD>Messages</TD>
+             <TD>Weather</TD>
+             <TD>Encap Pkts</TD>
+             <TD>Error</TD>
+          </TR>
+          <TR>
+             <TD id="stats_total">10</TD>
+             <TD id="stats_msgcount">2</TD>
+             <TD id="stats_wxcount">5</TD>
+
+             <TD id="stats_encapcount">3</TD>
+             <TD id=stats_errorcount>1</TD>
+          </TR>
+       </table>
+    </div>
+
+    <div id="aprsdebugwin" name="DebugWindow 1" title="Debug Window 1"
+      style="border: 1px solid black; font: Helvetica 12pt;
+         overflow-x:hidden;overflow-y:scroll; height: 80px">
+       <h5>Debug</h5>
+       <p>This paragraph would be your content paragraph...</p>
+       <p>Here's another content article right here.</p>
+    </div>
+    <div id="aprsdebugwin2"  name="DebugWindow 2" title="Debug Window 2"
+      style="border: 2px solid black; overflow-x:hidden;overflow-y:scroll; height: 80px">
+       <h5>Debug2</h5>
+    </div>
+
+    <script src="jquery-1.8.3.min.js"></script>
+    <script src="tracker-frontend.js"></script>
+    </body>
+</html>

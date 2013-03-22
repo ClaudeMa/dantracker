@@ -1,18 +1,25 @@
+/* -*- Mode: C; tab-width: 8;  indent-tabs-mode: nil; c-basic-offset: 8; c-brace-offset: -8; c-argdecl-indent: 8 -*- */
 /* Copyright 2012 Dan Smith <dsmith@danplanet.com> */
 
 #define _GNU_SOURCE
-#include <errno.h>
+#include <unistd.h>
+#include <stdio.h>
 #include <stdlib.h>
+
+#include <errno.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <arpa/inet.h>
 #include <getopt.h>
+#include <stdbool.h>
 
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
 #include <pango/pango.h>
 
+#include "aprs.h"
 #include "ui.h"
+#include "util.h"
 
 #define BG_COLOR "black"
 #define FG_COLOR_TEXT "white"
@@ -231,7 +238,7 @@ int main_move_cursor(struct layout *l, struct key_map *km)
 	}
 
 	snprintf(sta, sizeof(sta), "%d", l->state.main_selected);
-	ui_send(l->state.last_ui_fd, "STATIONINFO", sta);
+	ui_send(l->state.last_ui_fd, UI_MSG_NAME_STATION_INFO, sta);
 
 	if (l->state.main_selected < 0)
 		return 0;
@@ -245,14 +252,14 @@ int main_move_cursor(struct layout *l, struct key_map *km)
 
 int main_beacon(struct layout *l, struct key_map *km)
 {
-	ui_send(l->state.last_ui_fd, "BEACONNOW", "");
+	ui_send(l->state.last_ui_fd, UI_MSG_NAME_BEACON, "");
 
 	return 0;
 }
 
 int main_init_kiss(struct layout *l, struct key_map *km)
 {
-	ui_send(l->state.last_ui_fd, "INITKISS", "");
+	ui_send(l->state.last_ui_fd, UI_MSG_NAME_KISS, "");
 
 	return 0;
 }
@@ -357,7 +364,7 @@ int make_text_label(struct layout *l,
  * So, since we scale it up by a factor of APRS_IMG_MULT, we locate an
  * icon by skipping 20*MULT icon pixels and 1*MULT lines.
  */
-#define APRS_IMG_MULT 5
+
 int update_icon(struct named_element *e, const char *value)
 {
 	GdkPixbuf *icon;
@@ -646,14 +653,14 @@ int make_window(struct layout *l, int justwindow)
 	return 0;
 }
 
-int server_setup_unix()
+int server_setup_unix(struct state *state)
 {
 	int sock;
 	struct sockaddr_un sockaddr;
 
 	sockaddr.sun_family = AF_UNIX;
-	strcpy(sockaddr.sun_path, SOCKPATH);
-	unlink(SOCKPATH);
+	strcpy(sockaddr.sun_path, state->conf.ui_sock_path);
+	unlink(state->conf.ui_sock_path);
 
 	sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock < 0) {
@@ -674,14 +681,14 @@ int server_setup_unix()
 	return sock;
 }
 
-int server_setup_inet()
+int server_setup_inet(struct state *state)
 {
 	int sock;
 	struct sockaddr_in sockaddr;
 
 	sockaddr.sin_family = AF_INET;
 	sockaddr.sin_addr.s_addr = 0;
-	sockaddr.sin_port = htons(SOCKPORT);
+	sockaddr.sin_port = htons(state->conf.ui_sock_port);
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
@@ -722,7 +729,7 @@ gboolean server_handle(GIOChannel *source, GIOCondition cond, gpointer user)
 		return FALSE;
 	}
 
-#if 0
+#if 1
 	printf("Setting %s->%s\n", ui_get_msg_name(msg), ui_get_msg_valu(msg));
 #endif
 
@@ -774,15 +781,15 @@ struct opts {
 	int inet;
 };
 
-int server_loop(struct opts *opts, struct layout *l)
+int server_loop(struct opts *opts, struct layout *l, struct state *state)
 {
 	int sock;
 	GIOChannel *channel;
 
 	if (opts->inet)
-		sock = server_setup_inet();
+		sock = server_setup_inet(state);
 	else
-		sock = server_setup_unix();
+		sock = server_setup_unix(state);
 	if (sock < 0)
 		return sock;
 
@@ -797,7 +804,7 @@ int server_loop(struct opts *opts, struct layout *l)
 	return 0;
 }
 
-int parse_opts(int argc, char **argv, struct opts *opts)
+int parse_ui_opts(int argc, char **argv, struct opts *opts)
 {
 	static struct option lopts[] = {
 		{"window",    0, 0, 'w'},
@@ -829,14 +836,21 @@ int main(int argc, char **argv)
 {
 	struct layout layout;
 	struct opts opts;
+        struct state state;
 
+        memset(&state, 0, sizeof(state));
 	memset(&opts, 0, sizeof(opts));
 	memset(&layout, 0, sizeof(layout));
 	layout.state.main_selected = -1;
 
 	gtk_init(&argc, &argv);
 
-	parse_opts(argc, argv, &opts);
+        parse_ui_opts(argc, argv, &opts);
+
+        if (parse_ini(state.conf.config ? state.conf.config : "aprs.ini", &state)) {
+                printf("Invalid config\n");
+                exit(1);
+        }
 
 	aprs_pri_img = gdk_pixbuf_new_from_file("images/aprs_pri_big.png",
 						NULL);
@@ -854,7 +868,8 @@ int main(int argc, char **argv)
 		abort();
 	}
 
-	server_loop(&opts, &layout);
+	server_loop(&opts, &layout, &state);
+        ini_cleanup(&state);
 
 	return 0;
 }

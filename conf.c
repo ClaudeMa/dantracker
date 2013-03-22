@@ -5,6 +5,7 @@
  * Copyright 2012 Dan Smith <dsmith@danplanet.com>
  */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -12,13 +13,12 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <getopt.h>
-#include <sys/un.h>
 #include <netdb.h>
-#include <iniparser.h>
+#include <stdbool.h>
 
+#include "aprs.h"
 #include "ui.h"
 #include "util.h"
-#include "aprs.h"
 
 #define TIER2_HOST_NAME ".aprs2.net"
 
@@ -36,15 +36,18 @@ void usage(char *argv0)
                "  --conf, -c       Configuration file to use\n"
                "  --display, -d    Host to use for display over INET socket\n"
                "  --netrange, -r   Range (miles) to use for APRS-IS filter\n"
+               "  --metric, -m     Display metric units\n"
                "\n",
                argv0);
 }
 
-int lookup_host(struct state *state, const char *hostname)
+int lookup_host(struct state *state)
 {
+        const char *hostname =state->conf.ui_host_name;
         struct hostent *host;
         struct sockaddr_in *sa = (struct sockaddr_in *)&state->conf.display_to;
 
+        printf("Looking up hostname: %s\n", hostname);
         host = gethostbyname(hostname);
         if (!host) {
                 perror(hostname);
@@ -57,13 +60,14 @@ int lookup_host(struct state *state, const char *hostname)
         }
 
         sa->sin_family = AF_INET;
-        sa->sin_port = htons(SOCKPORT);
+        sa->sin_port = htons(state->conf.ui_inet_port);
         memcpy(&sa->sin_addr, host->h_addr_list[0], sizeof(sa->sin_addr));
 
         return 0;
 }
 
 int parse_opts(int argc, char **argv, struct state *state)
+
 {
         static struct option lopts[] = {
                 {"help",      0, 0, 'h'},
@@ -75,12 +79,10 @@ int parse_opts(int argc, char **argv, struct state *state)
                 {"conf",      1, 0, 'c'},
                 {"display",   1, 0, 'd'},
                 {"netrange",  1, 0, 'r'},
+                {"metric",    0, 0, 'm'},
                 {NULL,        0, 0,  0 },
         };
 
-        state->conf.display_to.sa_family = AF_UNIX;
-        strcpy(((struct sockaddr_un *)&state->conf.display_to)->sun_path,
-               SOCKPATH);
 
         state->conf.aprsis_range = 100;
 
@@ -88,7 +90,7 @@ int parse_opts(int argc, char **argv, struct state *state)
                 int c;
                 int optidx;
 
-                c = getopt_long(argc, argv, "ht:g:T:c:svd:r:",
+                c = getopt_long(argc, argv, "mht:g:T:c:svd:r:",
                                 lopts, &optidx);
                 if (c == -1)
                         break;
@@ -116,11 +118,14 @@ int parse_opts(int argc, char **argv, struct state *state)
                                 state->conf.config = optarg;
                                 break;
                         case 'd':
-                                lookup_host(state, optarg);
+                                state->conf.ui_host_name = optarg;
                                 break;
                         case 'r':
                                 state->conf.aprsis_range = \
                                         (unsigned int)strtoul(optarg, NULL, 10);
+                                break;
+                        case 'm':
+                                state->conf.metric_units = 1;
                                 break;
                         case '?':
                                 printf("Unknown option\n");
@@ -136,7 +141,7 @@ char *process_tnc_cmd(char *cmd)
         char *ret;
         char *a, *b;
 
-        ret = malloc(strlen(cmd) * 2);
+        ret = malloc((strlen(cmd) * 2) + 1);
         if (ret < 0)
                 return NULL;
 
@@ -185,11 +190,14 @@ char **parse_list(char *string, int *count)
 int parse_ini(char *filename, struct state *state)
 {
         dictionary *ini;
-        char *tmp, *tmp1;
+        char *tmp, *basecallsign;
+        static char *socketpath;
 
         ini = iniparser_load(filename);
         if (ini == NULL)
                 return -EINVAL;
+
+        state->conf.ini_dict = ini; /* save the ini parser dictionary */
 
         if (!state->conf.tnc)
                 state->conf.tnc = iniparser_getstring(ini, "tnc:port", NULL);
@@ -207,7 +215,7 @@ int parse_ini(char *filename, struct state *state)
         /* Build the TIER 2 host name */
         tmp = iniparser_getstring(ini, "net:server_host_address", "oregon");
 
-        state->conf.net_server_host_addr = calloc(sizeof(tmp)+sizeof(TIER2_HOST_NAME)+1, sizeof(char));
+        state->conf.net_server_host_addr = calloc(sizeof(tmp)+ 1 + sizeof(TIER2_HOST_NAME) + 1, sizeof(char));
         sprintf(state->conf.net_server_host_addr,"%s%s", tmp, TIER2_HOST_NAME);
 
         /* Get the AX25 port name */
@@ -236,23 +244,29 @@ int parse_ini(char *filename, struct state *state)
         state->mycall = iniparser_getstring(ini, "station:mycall", "N0CALL-7");
 
         /* Verify call sign */
-        tmp=strdup(state->mycall);
-        tmp1=tmp;
-        while ((*tmp1 != '-') && (*tmp1 != 0)) {
-                tmp1++;
-        }
-        *tmp1 = '\0';
-
-        strupper(tmp);
-        if(strcmp(tmp, "NOCALL") == 0 ) {
-                printf("Configure file %s with your callsign\n",
-                       state->conf.config ? state->conf.config : "aprs.ini");
-                free(tmp);
+        basecallsign=strdup(state->mycall);
+        if(!get_base_callsign(basecallsign, &state->myssid, state->mycall)) {
+                printf("Error parsing base callsign from %s", state->mycall);
                 return(-1);
         }
-        free(tmp);
 
-        pr_debug("calling iniparser for station:mycall %s\n", state->mycall);
+        if(strcmp(basecallsign, "NOCALL") == 0 ) {
+                printf("Configure file %s with your callsign\n",
+                       state->conf.config ? state->conf.config : "aprs.ini");
+                return(-1);
+        }
+        state->basecall = basecallsign;
+
+        pr_debug("Calling iniparser for station call %s, ssid:%d\n",
+                 state->basecall, state->myssid);
+
+
+        /* If host address arg isn't defined on command line (-d) use this
+         * UNIX socket path */
+        asprintf(&socketpath, "/tmp/%s_UI", basecallsign);
+        state->conf.ui_sock_path = iniparser_getstring(ini, "ui_net:unix_socket", socketpath);
+
+        state->conf.ui_inet_port = iniparser_getint(ini, "ui_net:inet_port", 9123);
 
         state->conf.icon = iniparser_getstring(ini, "station:icon", "/>");
 
@@ -364,6 +378,17 @@ int parse_ini(char *filename, struct state *state)
                                 "INVAL");
                 }
         }
+
+        /* Manually set which packets to display on console */
+        state->debug.console_display_filter |= CONSOLE_DISPLAY_MSG;
+
+        /* To disable the record and playback pkt functions comment
+         * out the appropriate line in the ini file.
+         */
+        state->debug.record_pkt_filename = iniparser_getstring(ini, "debug:record", NULL);
+        state->debug.playback_pkt_filename = iniparser_getstring(ini, "debug:playback", NULL);
+        state->debug.playback_time_scale = iniparser_getint(ini, "debug:playback_scale", 1);
+
         /*
          * Check that mycall has been set in ini file
          */
@@ -374,3 +399,10 @@ int parse_ini(char *filename, struct state *state)
 
         return 0;
 }
+
+void ini_cleanup(struct state *state)
+{
+        /* free the previously loaded dictionary */
+        iniparser_freedict(state->conf.ini_dict);
+}
+

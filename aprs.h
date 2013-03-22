@@ -10,7 +10,16 @@
 
 #include <sys/socket.h>
 #include <fap.h>
+#include <iniparser.h>
+#include <stdbool.h>
+
 #include "nmea.h"
+
+#define MAX_AX25_DIGIS 8        /* Maximim number of digipeaters: */
+#define MAX_APRS_MSG_LEN (67)
+#define MAX_CALLSIGN  9
+#define MAX_MSGID     5
+#define KEEP_MESSAGES 8
 
 #define KEEP_PACKETS 8
 #define KEEP_POSITS  4
@@ -21,11 +30,36 @@
 
 #define TZ_OFFSET (-8)
 
+#define APRS_DATATYPE_POS_NO_TIME_NO_MSG '!'
+#define APRS_DATATYPE_POS_NO_TIME_WITH_MSG '='
+#define APRS_DATATYPE_POS_WITH_TIME_WITH_MSG '@'
+#define APRS_DATATYPE_POS_WITH_TIME_NO_MSG '/'
+#define APRS_DATATYPE_CURRENT_MIC_E_DATA '`'
+
 #ifdef DEBUG
 #define pr_debug(format, ...) fprintf (stderr, "DEBUG: "format, ## __VA_ARGS__)
 #else
 #define pr_debug(format, ...)
 #endif
+
+/* Define config bits for console_display_filter */
+#define CONSOLE_DISPLAY_ALL    (0xff)
+#define CONSOLE_DISPLAY_WX     (0x01)
+#define CONSOLE_DISPLAY_MSG    (0x02)
+#define CONSOLE_DISPLAY_FAPERR (0x04)
+#define CONSOLE_DISPLAY_DEBUG  (0x80)
+
+
+
+/* APRS message */
+typedef struct aprsmsg {
+        bool acked;
+        char *message_id;
+        time_t timestamp;
+        char srccall[MAX_CALLSIGN+1];
+        char dstcall[MAX_CALLSIGN+1];
+        char *message;
+} aprsmsg_t;
 
 /* AX.25 Packet Device Filter */
 typedef enum {
@@ -91,8 +125,15 @@ struct state {
                 int digi_delay;
 
                 struct sockaddr display_to;
+                char *ui_sock_path;
+                char *ui_host_name;
+                unsigned int ui_inet_port;
 
                 unsigned int aprsis_range;
+                int metric_units;
+                bool aprs_message_ack;
+                dictionary *ini_dict;
+
         } conf;
 
         struct posit mypos[KEEP_POSITS];
@@ -109,16 +150,21 @@ struct state {
         } tel;
 
         char *mycall;
-        char *myssid;
+        int myssid;
+        char *basecall;
 
-        char *ax25_dev;
-        int ax25_recvproto;         /* Protocol to use for receive ETH_P_ALL or ETH_P_AX25 */
+        char *ax25_dev;                 /* device name */
+        char *ax25_portcallsign;        /* callsign assigned to port name */
+        int ax25_recvproto;             /* Protocol to use for receive ETH_P_ALL or ETH_P_AX25 */
         int ax25_tx_sock;
 
         int tncfd;
         int gpsfd;
         int telfd;
         int dspfd;
+
+        aprsmsg_t *msghist[KEEP_MESSAGES];
+        int msghist_idx;
 
         fap_packet_t *last_packet; /* In case we don't store it below */
         fap_packet_t *recent[KEEP_PACKETS];
@@ -140,9 +186,34 @@ struct state {
         int other_beacon_idx;
 
         uint8_t digi_quality;
+        struct {
+                unsigned long inPktCount;
+                unsigned long inMsgCount;
+                unsigned long inWxCount;
+                unsigned long encapCount;
+                unsigned long fapErrCount;
+        } stats;
+
+        struct {
+                char *record_pkt_filename;
+                char *playback_pkt_filename;
+                int playback_time_scale;
+                int console_display_filter;
+        } debug;
 };
+
+/*
+ * defines the header written before each canned packet
+ */
+typedef struct recpkt {
+        time_t currtime;
+        int size;
+} recpkt_t;
+
 
 int parse_ini(char *filename, struct state *state);
 int parse_opts(int argc, char **argv, struct state *state);
+void ini_cleanup(struct state *state);
+int lookup_host(struct state *state);
 
 #endif /* APRS_H */

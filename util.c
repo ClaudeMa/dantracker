@@ -11,9 +11,9 @@
 #include <ctype.h>
 #include <stdint.h>
 #include <math.h>
-#include <time.h>
 
 #include "util.h"
+#include "aprs.h"
 
 const char *CARDINALS[] = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
 
@@ -47,7 +47,7 @@ char *get_escaped_string(char *string)
 {
         int i;
         char *escaped = NULL;
-        int length = strlen(string) * 2 + 1;
+        int length = (strlen(string) * 2) + 2;
 
         escaped = calloc(length, sizeof(char));
 
@@ -73,15 +73,32 @@ char *get_escaped_string(char *string)
         return escaped;
 }
 
-char *time2str(time_t *ptime)
+char *time2str(time_t *ptime, int format_type)
 {
         struct tm *ptm_now;
         static char tmstring[40];
+        time_t curtime;
+        time_t *thistime;
 
-        ptm_now = localtime(ptime);
-        strftime(tmstring, sizeof(tmstring)-1,
-                 "%d.%m.%y %H:%M:%S"
-                 ,ptm_now );
+        if (ptime == NULL) {
+                curtime = time(NULL);
+                thistime=&curtime;
+        } else {
+                thistime=ptime;
+        }
+
+        ptm_now = localtime(thistime);
+        if(format_type == 0) {
+                strftime(tmstring, sizeof(tmstring)-1,
+                         "%d.%m.%y %H:%M:%S"
+                         ,ptm_now );
+        } else {
+                /* more appropriate for filenames */
+                strftime(tmstring, sizeof(tmstring)-1,
+                         "%y%m%d%H%M"
+                         ,ptm_now );
+
+        }
         return( tmstring );
 }
 
@@ -98,4 +115,28 @@ char *strupper(char *s)
                 }
         }
         return s;
+}
+
+/*
+ * Expect input string is a valid 6 character or less callsign with a
+ * dash & 2 numeric character sid.
+ */
+int get_base_callsign(char *strOutput, int *ssid, char *strInput)
+{
+        int cnt = 0;
+        int retcode = 1;
+
+        while ( (*strInput != '-') && (*strInput != 0) && cnt++ <= MAX_CALLSIGN) {
+                *strOutput = toupper(*strInput);
+                strInput++;
+                strOutput++;
+        }
+        if(cnt <= MAX_CALLSIGN) {
+                *strOutput = '\0';
+                *ssid = atoi(strInput + 1);
+        } else {
+              retcode = 0;
+        }
+
+        return(retcode);
 }

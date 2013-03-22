@@ -6,6 +6,8 @@
 
 #define ISAX25ADDR(x) (((x >= 'A') && (x <= 'Z')) || ((x >= '0') && (x <= '9')) || (x == ' '))
 
+bool packet_qualify(struct state *state, struct sockaddr *sa, unsigned char *buf, int size);
+void fap_conversion_debug(char *rxbuf, char *buf, int size);
 int get_ax25packet(struct state *state, char *buffer, unsigned int *len);
 int aprsax25_connect(struct state *state);
 int send_ax25_beacon(struct state *state, char *packet);

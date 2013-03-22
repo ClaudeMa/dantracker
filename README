@@ -5,26 +5,64 @@ Dependencies:
 
 libfap:
   http://pakettiradio.net/libfap/
-  cp libfap-1.3/src/fap.h /usr/local/include/
+  wget http://pakettiradio.net/downloads/libfap/1.3/libfap-1.3.tar.gz
+  tar -zxvf libfap-1.3.tar.gz
+
+  cd libfap-1.3
+  sudo cp src/fap.h /usr/local/include/
+  ./configure
   make
   sudo make install
   NOTE: libraries install to /usr/local/lib
 
 libiniparser:
   http://ndevilla.free.fr/iniparser/
-  sudo cp iniparser/src/iniparser.h  /usr/local/include
-  make
-  sudo cp iniparser.* /usr/local/lib
+  wget http://ndevilla.free.fr/iniparser/iniparser-3.1.tar.gz
+  tar -zxvf iniparser-3.1.tar.gz
 
-GTK:
+  cd iniparser
+  sudo cp src/iniparser.h  /usr/local/include
+  sudo cp src/dictionary.h /usr/local/include
+  make
+  sudo cp libiniparser.* /usr/local/lib
+
+GTKAPP: Only used by gtk app, see Makefile
   gtk+-2.0
   libgtk2.0-dev
 
-ax25 - optional:
+AX25: Only used with AX25 stack
   libax25-dev
 
-Extra Tools:
+WEBAPP: Only used by web app, see Makefile
+  node.js
+    requires openssl libssl-dev
+    https://github.com/joyent/node
+    git clone git://github.com/ry/node.git
+
+    cd node
+    ./configure
+    make
+    sudo make install
+    verify by running: $ node -v && npm -v
+
+  json-c
+    https://github.com/json-c/json-c
+    git clone git://github.com/json-c/json-c.git
+
+    cd json-c
+    sh autogen.sh
+    ./configure
+    make
+    make install
+
+Tools required:
+  build-essential (includes libc-dev, make, gcc, ... etc)
   pkg-config
+  imagemagick
+  git
+  automake
+  autoconf
+  libtool
 
 
 Basic Installation
@@ -33,11 +71,15 @@ Basic Installation
 `cd' to the directory containing the source code and type
 `make' to compile, link & create png image files.
 
-Running dantracker
+
+Configuration
 ==================
 Copy one of the ini files from examples directory to same directory
 as aprs executable and rename to aprs.ini
 
+
+Running dantracker
+==================
 Stress-test by using examples/aprstest.ini (modified as appropriate), which
 will attempt to eat the entire APRS-IS world feed without crashing.
 

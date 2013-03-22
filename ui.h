@@ -6,12 +6,18 @@
 #include <stdint.h>
 #include <sys/socket.h>
 
-#define SOCKPATH "/tmp/KK7DS_UI"
 #define MAXMSG 2048
-#define SOCKPORT 9123
+
+#define UI_MSG_NAME_STATION_INFO "STATIONINFO"
+#define UI_MSG_NAME_BEACON "BEACONNOW"
+#define UI_MSG_NAME_KISS "INITKISS"
+#define UI_MSG_NAME_SEND "APRSMSG"
+#define UI_MSG_NAME_SETCFG "APRSSETCFG"
+#define UI_MSG_NAME_GETCFG "APRSGETCFG"
 
 enum {
 	MSG_SETVALUE,
+	MSG_SEND,
 	MSG_MAX
 };
 
