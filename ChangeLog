@@ -1,3 +1,14 @@
+Sun Mar 31 08:53:24 PDT 2013  Basil Gunn <basil@pacabunga.com>
+
+    * Add unix_sock_wait.
+      aprs program cleans up any outstanding unix sockets and waits
+      for an appropriate socket to be created by node.js server script,
+      tracker-server.js
+    * ui_connect() now only requires state pointer.
+      Files modified:
+        aprs/tracker/aprs-ax25.c
+        aprs/tracker/uiclient.c
+        aprs/tracker/ui.h
 
 Thu Mar 21 22:13:09 PDT 2013  Basil Gunn <basil@pacabunga.com>
 

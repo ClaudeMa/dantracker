@@ -154,6 +154,10 @@ int send_net_beacon(int fd, char *packet)
  */
 int send_beacon(struct state *state, char *packet)
 {
+        if(state->debug.console_display_filter & CONSOLE_DISPLAY_PKTOUT) {
+                printf("Packet out %s: len: %d, src: %s, pkt: %s\n",
+                       time2str(NULL, 0), strlen(packet), state->ax25_srcaddr, packet);
+        }
         if (STREQ(state->conf.tnc_type, "KISS")) {
                 _ui_send(state, "I_TX", "1000");
                 return send_kiss_beacon(state->tncfd, packet);
@@ -204,8 +208,7 @@ int _ui_send(struct state *state, const char *name, const char *value)
 
         /* If socket is not valid try connecting */
         if (*fd < 0) {
-                *fd = ui_connect(&state->conf.display_to,
-                                 sizeof(state->conf.display_to));
+                *fd = ui_connect(state);
         }
 
         /* check for a valid socket */

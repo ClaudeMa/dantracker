@@ -1,13 +1,15 @@
 /* -*- Mode: C; tab-width: 8;  indent-tabs-mode: nil; c-basic-offset: 8; c-brace-offset: -8; c-argdecl-indent: 8 -*- */
 /* Copyright 2012 Dan Smith <dsmith@danplanet.com> */
 
-#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <errno.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <stdbool.h>
 #include <json/json.h>
 
@@ -20,9 +22,61 @@
 int mesg_id = 0;
 int glaprs_message_ack = false;
 
-int ui_connect(struct sockaddr *dest, unsigned int dest_len)
+int ui_sock_cfg(struct state *state)
+{
+        struct sockaddr *dest;
+        int sock;
+
+        struct sockaddr_un sun;
+
+        sun.sun_family = AF_UNIX;
+        strcpy(sun.sun_path, state->conf.ui_sock_path);
+
+        dest=(struct sockaddr *)&sun;
+        sock = socket(dest->sa_family, SOCK_STREAM, 0);
+        if (sock < 0) {
+                perror("socket");
+                return -errno;
+        }
+
+        if (connect(sock, dest, sizeof(sun))) {
+                fprintf(stderr, "%s: connect error on ui socket %d, path: %s, error: %s\n",
+                          __FUNCTION__, sock,  state->conf.ui_sock_path, strerror(errno));
+
+                return -errno;
+        }
+
+        return sock;
+}
+
+void ui_unix_sock_wait(struct state *state)
+{
+        struct stat sts;
+
+        /* get rid of the Unix socket */
+        unlink(state->conf.ui_sock_path);
+        stat(state->conf.ui_sock_path, &sts);
+        pr_debug("stat on %s returned an errno of 0x%02x %s\n",
+                 state->conf.ui_sock_path, errno, strerror(errno));
+
+        /* Wait for the socket to be created by the node script */
+        printf("Waiting for node script to create a Unix socket\n");
+        while (stat(state->conf.ui_sock_path, &sts) == -1 && errno == ENOENT) {
+                sleep(1);
+        }
+        sleep(2);
+}
+
+int ui_connect(struct state *state)
 {
 	int sock;
+        struct sockaddr *dest =  &state->conf.display_to;
+        unsigned int dest_len = sizeof(state->conf.display_to);
+
+        if(state->conf.display_to.sa_family == AF_UNIX) {
+                /* clean-up previous socket */
+                ui_unix_sock_wait(state);
+        }
 
 	sock = socket(dest->sa_family, SOCK_STREAM, 0);
 	if (sock < 0) {
@@ -31,11 +85,14 @@ int ui_connect(struct sockaddr *dest, unsigned int dest_len)
 	}
 
 	if (connect(sock, dest, dest_len)) {
-		fprintf(stderr, "%s: connect error on socket %d: %s\n",
+		fprintf(stderr, "%s: Failed to connect to UI socket %d: %s\n",
 			  __FUNCTION__, sock, strerror(errno));
 		close(sock);
 		return -errno;
-	}
+	} else {
+                printf("UI Socket %s, connected with sock %d\n",
+                       state->conf.ui_sock_path, sock);
+        }
 
 	return sock;
 }
@@ -97,25 +154,6 @@ int ui_send(int sock, const char *name, const char *value)
 	return ret;
 }
 
-int ui_send_to(struct sockaddr *dest, unsigned int dest_len,
-	       const char *name, const char *value)
-{
-	int sock;
-	int ret;
-
-	if (strlen(name) == 0)
-		return -EINVAL;
-
-	sock = ui_connect(dest, dest_len);
-	if (sock < 0)
-		return sock;
-
-	ret = ui_send(sock, name, value);
-
-	close(sock);
-
-	return ret;
-}
 
 #define RBUFSIZE 1024
 
@@ -384,40 +422,91 @@ int parse_ui_opts(int argc, char **argv, struct opts *opts)
 	return (retval);
 }
 
+int ui_send_unix(struct opts *opts, struct state *state)
+{
+        int sock;
+        int ret;
+        struct sockaddr_un sun;
+        struct sockaddr *dest = (struct sockaddr *)&sun;
+        unsigned int dest_len = sizeof(sun);
+
+        const char *name = opts->name;
+        const char *value = opts->value;
+
+        ui_unix_sock_wait(state);
+
+        sun.sun_family = AF_UNIX;
+        strcpy(sun.sun_path, state->conf.ui_sock_path);
+        return ui_send_to((struct sockaddr *)&sun, sizeof(sun),
+                          opts->name, opts->value);
+        if (strlen(name) == 0)
+                return -EINVAL;
+
+        sock = ui_connect(dest, dest_len);
+        if (sock < 0)
+                return sock;
+
+        ret = ui_send(sock, name, value);
+
+        close(sock);
+
+        return ret;
+}
+
+int ui_send_inet(struct opts *opts, struct state *state)
+{
+        int sock;
+        int ret;
+        char hostname[]="127.0.0.1";
+        struct sockaddr_in sin;
+        struct sockaddr *dest = (struct sockaddr *)&sin;
+        unsigned int dest_len = sizeof(sin);
+
+        struct hostent *host;
+        char *name = opts->name;
+        const char *value = opts->value;
+
+
+        sin.sin_family = AF_INET;
+        sin.sin_port = htons(state->conf.ui_sock_port);
+
+        host = gethostbyname(hostname);
+        if (!host) {
+                perror(hostname);
+                return -errno;
+        }
+
+        if (host->h_length < 1) {
+                fprintf(stderr, "No address for %s\n", hostname);
+                return -EINVAL;
+        }
+        memcpy(&sin.sin_addr, host->h_addr_list[0], sizeof(sin.sin_addr));
+
+
+        if (strlen(name) == 0)
+                return -EINVAL;
+
+        sock = ui_connect(dest, dest_len);
+        if (sock < 0)
+                return sock;
+
+        ret = ui_send(sock, name, value);
+
+        close(sock);
+
+        return ret;
+}
+
 int ui_send_default(struct opts *opts, struct state *state)
 {
 
-	if(opts->addr_family == AF_INET) {
-		printf("using AF_INET\n");
-		char hostname[]="127.0.0.1";
-		struct sockaddr_in sin;
-		struct hostent *host;
-
-		sin.sin_family = AF_INET;
-		sin.sin_port = htons(state->conf.ui_sock_port);
-
-		host = gethostbyname(hostname);
-		if (!host) {
-			perror(hostname);
-			return -errno;
-		}
-
-		if (host->h_length < 1) {
-			fprintf(stderr, "No address for %s\n", hostname);
-			return -EINVAL;
-		}
-		memcpy(&sin.sin_addr, host->h_addr_list[0], sizeof(sin.sin_addr));
-
-		return ui_send_to((struct sockaddr *)&sin, sizeof(sin),
-				  opts->name, opts->value);
-	} else {
-		printf("using AF_UNIX\n");
-		struct sockaddr_un sun;
-		sun.sun_family = AF_UNIX;
-		strcpy(sun.sun_path, state->conf.ui_sock_path);
-		return ui_send_to((struct sockaddr *)&sun, sizeof(sun),
-				  opts->name, opts->value);
-	}
+        if(opts->addr_family == AF_INET) {
+                printf("using AF_INET\n");
+                return (ui_send_inet(struct opts *opts, struct state *state));
+        } else {
+                printf("using AF_UNIX\n");
+                return (ui_send_unix(struct opts *opts, struct state *state));
+        }
 }
 
 int main(int argc, char **argv)

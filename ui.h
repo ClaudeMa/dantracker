@@ -32,7 +32,7 @@ struct ui_msg {
 	};
 };
 
-int ui_connect(struct sockaddr *dest, unsigned int dest_len);
+int ui_connect(struct state *state);
 int ui_send(int sock, const char *name, const char *value);
 int ui_send_to(struct sockaddr *dest, unsigned int dest_len,
 	       const char *name, const char *value);
