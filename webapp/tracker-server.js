@@ -292,7 +292,7 @@ wsServer.on('request', function(request) {
                                 for (var i=0; i < chatClients.length; i++) {
                                         chatClients[i].sendUTF(json);
                                 }
-r
+
                                 connection.sendUTF(JSON.stringify({ type:'color', data: userColor }));
 
                                 console.log('Sending message to radio: length =' + json.length);

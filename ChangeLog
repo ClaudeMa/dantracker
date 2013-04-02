@@ -1,14 +1,27 @@
-Sun Mar 31 08:53:24 PDT 2013  Basil Gunn <basil@pacabunga.com>
+Tue Apr  2 10:14:28 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
-    * Add unix_sock_wait.
-      aprs program cleans up any outstanding unix sockets and waits
-      for an appropriate socket to be created by node.js server script,
-      tracker-server.js
-    * ui_connect() now only requires state pointer.
+    * Fix AX.25 destination address to enable Mic-E data.
       Files modified:
-        aprs/tracker/aprs-ax25.c
-        aprs/tracker/uiclient.c
-        aprs/tracker/ui.h
+        aprs.h
+        aprs.c
+
+    * Add scripts directory to enable using screen & init.d
+      Files added:
+        scripts/aprs_stat.sh
+        scripts/serialusb.sh
+        scripts/tracker
+        scripts/tracker-down
+        scripts/tracker-up
+
+    * Modify AX.25 source address to use callsigns other than what's
+      config'ed in axports.
+      File modified: aprs-ax25.c
+
+    * Enable bar signal images
+      File modified: webapp/tracker-frontend.js
+
+   * Remove spurious character.
+      File modified: webapp/tracker-server.js
 
 Thu Mar 21 22:13:09 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
@@ -33,8 +46,10 @@ Thu Mar 21 22:13:09 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
       Files added:
         ChangeLog
+        ax25dump.c
         crc.c
         faptest.c
+        mondefs.h
         monixd.h
         monutil.h
         webapp/spy-frontend.js
