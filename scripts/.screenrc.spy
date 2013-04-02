@@ -1,0 +1,2 @@
+screen sh -c '../aprs-ax25 -c ../examples/aprs_spy.ini; exec bash'
+screen sh -c '/usr/local/bin/node ../webapp/spy-server.js ../examples/aprs_spy.ini; exec bash'

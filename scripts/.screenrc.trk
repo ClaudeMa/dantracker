@@ -1,0 +1,3 @@
+screen sh -c '../aprs -c ../examples/aprs_tracker.ini; exec bash'
+screen sh -c '/usr/local/bin/node ../webapp/tracker-server.js ../examples/aprs_tracker.ini; exec bash'
+screen sh -c 'tail -f /tmp/aprs_N7NIX.log; exec bash'

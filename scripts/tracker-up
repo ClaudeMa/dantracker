@@ -1,0 +1,7 @@
+#!/bin/sh
+echo "Starting Tracker"
+screen -dmS Tracker -c /etc/tracker/.screenrc.trk
+echo "Starting Spy"
+screen -dmS Spy -c /etc/tracker/.screenrc.spy
+screen -ls
+echo "finished starting tracker"
