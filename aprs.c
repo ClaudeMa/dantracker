@@ -1568,10 +1568,19 @@ int set_time(struct state *state)
 
         if (mypos->qual == 0)
                 return 1; /* No fix, no set */
-        else if (mypos->sats < 3)
+        else if (mypos->sats < 3) {
                 return 1; /* Not enough sats, don't set */
-        else if (!HAS_BEEN(state->last_time_set, 120))
+        }
+        /* Only set the Computer system time at boot up & once a day
+         * after boot.
+         * Setting system time frequently (every 2 minutes) causes
+         * programs that check & verify time like Dovecot to indciate a
+         * variation in system time of more than 7 seconds causing bad
+         * things to happen.
+         */
+        else if (!HAS_BEEN(state->last_time_set, 60*60*24)) {
                 return 1; /* Too recent */
+        }
 
         hour = (tstamp / 10000);
         min = (tstamp / 100) % 100;
@@ -1769,8 +1778,8 @@ int handle_display(struct state *state)
                 /* Set any config coming back from web app */
         } else if (STREQ(name, UI_MSG_NAME_GETCFG)) {
                 /* Send requested config back to web app */
-                _ui_send(state, "CF_CALL", state->ax25_portcallsign);
-                printf("Sent source callsign %s\n", state->ax25_portcallsign);
+                _ui_send(state, "CF_CALL", state->mycall);
+                printf("Sent source callsign %s\n", state->mycall);
         } else {
                 printf("Display said: name: %s, value: %s\n",
                        name, ui_get_msg_valu(msg));
@@ -1913,7 +1922,7 @@ char *choose_data(struct state *state, char *req_icon)
                 case DO_TYPE_PHG:
                         if (state->conf.do_types & DO_TYPE_PHG) {
                                 asprintf(&data,
-                                         "PHG%1d%1d%1d%1d%s",
+                                         "PHG%1d%1d%1d%1d,%s",
                                          state->conf.power,
                                          state->conf.height,
                                          state->conf.gain,
@@ -2024,27 +2033,55 @@ char *make_mice_beacon(struct state *state)
         if (altitude[0] == 33)
                 altitude = &altitude[1];
 
-        asprintf(&str,
-                 "%s>%c%c%c%c%c%c,%s:%c%c%c%c%c%c%c%c%c%s}",
-                 state->mycall,
-                 get_digit(lat, 5) | 0x50,
-                 get_digit(lat, 4) | 0x30,
-                 get_digit(lat, 3) | 0x50,
-                 get_digit(lat, 2) | north,
-                 get_digit(lat, 1) | lonsc,
-                 get_digit(lat, 0) | west,
-                 state->conf.digi_path,
-                 APRS_DATATYPE_CURRENT_MIC_E_DATA,
-                 lon_deg,
-                 lon_min,
-                 lon_hun,
-                 spd_htk,
-                 spd_crs,
-                 crs_tud,
-                 state->conf.icon[1],
-                 state->conf.icon[0],
-                 altitude);
+        /*
+         * AX.25 stores Mic-E data in the destination address field.
+         * AX.25 send beacon routine pulls out required fields &
+         * formats appropriately.
+         */
+        if (STREQ(state->conf.tnc_type, "AX25")) {
+                /*  AX.25 builds it's own packet header src & dest
+                 *  address */
 
+                asprintf(&str,
+                         "%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%s}",
+                         APRS_DATATYPE_CURRENT_MIC_E_DATA,
+                         get_digit(lat, 5) | 0x50,
+                         get_digit(lat, 4) | 0x30,
+                         get_digit(lat, 3) | 0x50,
+                         get_digit(lat, 2) | north,
+                         get_digit(lat, 1) | lonsc,
+                         get_digit(lat, 0) | west,
+                         lon_deg,
+                         lon_min,
+                         lon_hun,
+                         spd_htk,
+                         spd_crs,
+                         crs_tud,
+                         state->conf.icon[1],
+                         state->conf.icon[0],
+                         altitude);
+        } else {
+                asprintf(&str,
+                         "%s>%c%c%c%c%c%c,%s:%c%c%c%c%c%c%c%c%c%s}",
+                         state->mycall,
+                         get_digit(lat, 5) | 0x50,
+                         get_digit(lat, 4) | 0x30,
+                         get_digit(lat, 3) | 0x50,
+                         get_digit(lat, 2) | north,
+                         get_digit(lat, 1) | lonsc,
+                         get_digit(lat, 0) | west,
+                         state->conf.digi_path,
+                         APRS_DATATYPE_CURRENT_MIC_E_DATA,
+                         lon_deg,
+                         lon_min,
+                         lon_hun,
+                         spd_htk,
+                         spd_crs,
+                         crs_tud,
+                         state->conf.icon[1],
+                         state->conf.icon[0],
+                         altitude);
+        }
         return str;
 }
 
@@ -2053,10 +2090,21 @@ char *make_status_beacon(struct state *state)
         char *packet = NULL;
         char *data = get_comment(state);
 
-        asprintf(&packet,
-                 "%s>%s,%s:>%s",
-                 state->mycall, "APZDMS", state->conf.digi_path,
-                 data);
+        /*  AX.25 builds it's own packet src & dest address */
+        if (STREQ(state->conf.tnc_type, "AX25")) {
+                asprintf(&packet,
+                         "%c%s",
+                         APRS_DATATYPE_STATUS,
+                         data);
+        } else {
+                asprintf(&packet,
+                         "%s>%s,%s:%c%s",
+                         state->mycall,
+                         "APZDMS",
+                         state->conf.digi_path,
+                         APRS_DATATYPE_STATUS,
+                         data);
+        }
         free(data);
 
         return packet;
@@ -2111,17 +2159,16 @@ char *make_beacon(struct state *state, char *payload)
                                course_speed,
                                (int)M_TO_FT(mypos->alt),
                                payload);
-                pr_debug("%s:%s(): making beacon msg for AX.25 ret: 0x%02x, msg:%s\n",
-                       __FILE__, __FUNCTION__,ret, packet);
 #else
                 printf("%s:%s(): tnc type has been configured to use AX.25 but AX.25 lib has not been installed.\n",
                        __FILE__, __FUNCTION__);
 #endif /* #ifdef HAVE_AX25_TRUE */
         } else {
                 ret = asprintf(&packet,
-                               "%s>APZDMS,%s:!%s%c%s%c%s/A=%06i%s",
+                               "%s>APZDMS,%s:%c%s%c%s%c%s/A=%06i%s",
                                state->mycall,
                                state->conf.digi_path,
+                               APRS_DATATYPE_POS_NO_TIME_WITH_MSG,
                                _lat,
                                state->conf.icon[0],
                                _lon,
@@ -2297,8 +2344,6 @@ int beacon(struct state *state)
                 ret = send_beacon(state, packet);
                 free(packet);
         }
-
-        pr_debug("send_beacon ret=0x%02x\n", ret);
 
         state->last_beacon = time(NULL);
         state->digi_quality <<= 1;
@@ -2548,7 +2593,7 @@ int main(int argc, char **argv)
                 printf("Using canned packets\n");
 
                 state.ax25_recvproto = ETH_P_AX25;
-                state.ax25_portcallsign = state.basecall;
+                state.ax25_srcaddr = state.mycall;
                 state.disp_idx = -1;
                 _ui_send(&state, "AI_CALLSIGN", "HELLO");
 
