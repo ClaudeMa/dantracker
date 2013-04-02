@@ -164,7 +164,7 @@ int aprsax25_connect(struct state *state)
         char *ax25dev;
         struct full_sockaddr_ax25 sockaddr_ax25_dest;
         struct full_sockaddr_ax25 sockaddr_ax25_src;
-        char *portcallsign;
+        char *portcallsign, *src_addr;
 
         char *ax25port = state->conf.ax25_port;
         char *aprspath = state->conf.aprs_path;
@@ -223,24 +223,37 @@ int aprsax25_connect(struct state *state)
                 return(-1);
         }
 
-        /* Get the ax25 port callsign */
+        /*
+         * Choice of which source call sign to use
+         * - config'ed in /etc/ax25/axports for the ax25 stack
+         * - config'ed in aprs.ini as station:mycall
+         */
+        /* Get the port callsign from the ax25 stack */
         if ((portcallsign = ax25_config_get_addr(ax25port)) == NULL) {
-                perror("ax25_config_get_addr");
-                return -1;
+                        perror("ax25_config_get_addr");
+                        return -1;
+        }
+        if (state->mycall != NULL && strcmp(state->mycall, portcallsign) != 0) {
+                if ((src_addr = (char *) malloc(strlen(state->mycall) + 1 + strlen(portcallsign) + 1)) == NULL)
+                        return -1;
+                sprintf(src_addr, "%s %s", state->mycall, portcallsign);
+        } else {
+                if ((src_addr = strdup(portcallsign)) == NULL)
+                        return -1;
         }
 
         /* save it for convenience.
          * Displayed as source callsign for messaging on web interface
          */
-        state->ax25_portcallsign = portcallsign;
+        state->ax25_srcaddr = src_addr;
         pr_debug("%s(): Port %s is using device %s, callsign %s\n",
-                 __FUNCTION__, ax25port, ax25dev, portcallsign);
+                 __FUNCTION__, ax25port, ax25dev, src_addr);
 
         /* Convert to AX.25 addresses */
         memset((char *)&sockaddr_ax25_src, 0, sizeof(sockaddr_ax25_src));
         memset((char *)&sockaddr_ax25_dest, 0, sizeof(sockaddr_ax25_dest));
 
-        if ((tx_src_addrlen = ax25_aton(portcallsign, &sockaddr_ax25_src)) == -1) {
+        if ((tx_src_addrlen = ax25_aton(state->ax25_srcaddr, &sockaddr_ax25_src)) == -1) {
                 perror("ax25_config_get_addr src");
                 return -1;
         }
@@ -268,6 +281,9 @@ int aprsax25_connect(struct state *state)
 int send_ax25_beacon(struct state *state, char *packet)
 {
         char buf[512];
+        char destcall[8];
+        char destpath[32];
+        char *pkt_start;
         int ret;
         unsigned int len = sizeof(buf);
         unsigned int tx_dest_addrlen;   /* Length of APRS path */
@@ -279,14 +295,35 @@ int send_ax25_beacon(struct state *state, char *packet)
         strcpy(buf, packet);
         len=strlen(buf);
 
-        pr_debug("Sending AX.25 packet: %d bytes, socket: %d, source call: %s ->(%s)\n",
-               len, sock, ax25_config_get_addr(state->conf.ax25_port), packet);
-
         if(strlen(aprspath) == 0 ) {
                 fprintf(stderr, "%s:%s() no APRS path configured\n", __FILE__, __FUNCTION__);
                 /* Fix this */
                 return false;
         }
+        /* set the aprs path */
+        aprspath = state->conf.aprs_path;
+        pkt_start = buf;
+
+        /*
+         * Mic-E is different as its data can be stored in the AX.25
+         * destination address field
+         *
+         * The Mic-E data is passed to this routine as part of the
+         * packet and here some of the Mic-E data is stripped out & put
+         * in the destination address field.
+         * Note: Currently only using 6 of the 7 available AX.25 destination
+         * address field bytes.
+         * */
+        if(packet[0] == APRS_DATATYPE_CURRENT_MIC_E_DATA) {
+                strncpy(destcall, &packet[1], MIC_E_DEST_ADDR_LEN - 1);
+                destcall[MIC_E_DEST_ADDR_LEN - 1]='\0';
+                sprintf(destpath, "%s via %s", destcall, state->conf.digi_path);
+                aprspath = destpath;
+                buf[6] = APRS_DATATYPE_CURRENT_MIC_E_DATA;
+                pkt_start = &buf[MIC_E_DEST_ADDR_LEN - 1];
+                len -= 7;
+        }
+        memset((char *)&sockaddr_ax25_dest, 0, sizeof(sockaddr_ax25_dest));
 
         if ((tx_dest_addrlen = ax25_aton(aprspath, &sockaddr_ax25_dest)) == -1) {
                 perror("ax25_config_get_addr dest");
@@ -306,7 +343,7 @@ int send_ax25_beacon(struct state *state, char *packet)
         }
 #endif /* DEBUG */
 
-        if ((ret=sendto(sock, buf, len, 0, (struct sockaddr *)&sockaddr_ax25_dest, tx_dest_addrlen)) == -1) {
+        if ((ret=sendto(sock, pkt_start, len, 0, (struct sockaddr *)&sockaddr_ax25_dest, tx_dest_addrlen)) == -1) {
                 pr_debug("%s:%s(): after sendto sock msg len= %d, ret= 0x%02x\n",  __FILE__, __FUNCTION__, len, ret);
                 perror("sendto");
                 return false;
@@ -393,7 +430,7 @@ int ui_sock_wait(struct state *state)
         sleep(2);
 
         if( (ui_sock=ui_sock_cfg(state)) < 0) {
-                printf("%s: Failed to connected to UI socket, error: 0x%02x\n",
+                printf("%s: Failed to connect to UI socket, error: 0x%02x\n",
                        __FUNCTION__, -ui_sock);
                 return ui_sock;
         } else {
