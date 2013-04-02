@@ -30,11 +30,14 @@
 
 #define TZ_OFFSET (-8)
 
+#define MIC_E_DEST_ADDR_LEN (7)
+
 #define APRS_DATATYPE_POS_NO_TIME_NO_MSG '!'
 #define APRS_DATATYPE_POS_NO_TIME_WITH_MSG '='
 #define APRS_DATATYPE_POS_WITH_TIME_WITH_MSG '@'
 #define APRS_DATATYPE_POS_WITH_TIME_NO_MSG '/'
 #define APRS_DATATYPE_CURRENT_MIC_E_DATA '`'
+#define APRS_DATATYPE_STATUS '>'
 
 #ifdef DEBUG
 #define pr_debug(format, ...) fprintf (stderr, "DEBUG: "format, ## __VA_ARGS__)
@@ -45,10 +48,10 @@
 /* Define config bits for console_display_filter */
 #define CONSOLE_DISPLAY_ALL    (0xff)
 #define CONSOLE_DISPLAY_WX     (0x01)
-#define CONSOLE_DISPLAY_MSG    (0x02)
-#define CONSOLE_DISPLAY_FAPERR (0x04)
+#define CONSOLE_DISPLAY_MSG    (0x02) /* display APRS messages */
+#define CONSOLE_DISPLAY_PKTOUT (0x04) /* display out going packets */
+#define CONSOLE_DISPLAY_FAPERR (0x08) /* Display FAP error packets */
 #define CONSOLE_DISPLAY_DEBUG  (0x80)
-
 
 
 /* APRS message */
@@ -154,7 +157,7 @@ struct state {
         char *basecall;
 
         char *ax25_dev;                 /* device name */
-        char *ax25_portcallsign;        /* callsign assigned to port name */
+        char *ax25_srcaddr;             /* callsign assigned to port name */
         int ax25_recvproto;             /* Protocol to use for receive ETH_P_ALL or ETH_P_AX25 */
         int ax25_tx_sock;
 
