@@ -233,6 +233,12 @@ int aprsax25_connect(struct state *state)
                         perror("ax25_config_get_addr");
                         return -1;
         }
+
+        /*
+         * Check if the call sign in the ini file is the same as what's
+         * config'ed for the AX.25 stack in /etc/ax25/axports.
+         * If they are different set up source address for AX.25 stack.
+         */
         if (state->mycall != NULL && strcmp(state->mycall, portcallsign) != 0) {
                 if ((src_addr = (char *) malloc(strlen(state->mycall) + 1 + strlen(portcallsign) + 1)) == NULL)
                         return -1;
