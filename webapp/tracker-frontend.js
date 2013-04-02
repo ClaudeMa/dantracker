@@ -53,11 +53,10 @@ function display_sigbars(sigvalue, imgobj) {
 
 function gps_signal_display(barval) {
 
-        barTest++; /* test bar signal images */
-        barTest = (barTest > 4) ? 0 : barTest;
-
-        var barsig = barTest;
-        //        var barsig = barval;
+//        barTest++; /* test bar signal images */
+//        barTest = (barTest > 4) ? 0 : barTest;
+//        var barsig = barTest;
+        var barsig = barval;
 
         if(barsig >= 0 && barsig <= 4) {
                 display_sigbars(barsig, sigbar_image[barsig]) ;
