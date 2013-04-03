@@ -271,10 +271,10 @@ char *format_time(time_t t)
         return str;
 }
 
-const char *format_temp(struct state *state, const char *format, float celcius)
+const char *format_temp(struct state *state, const char *format, float celsius)
 {
         static char str[10];
-        float _temp = state->conf.metric_units ? celcius : C_TO_F(celcius);
+        float _temp = state->conf.metric_units ? celsius : C_TO_F(celsius);
         char  *unit = state->conf.metric_units ? "C" : "F";
 
         snprintf(str, sizeof(str), format, _temp, unit);
@@ -315,11 +315,11 @@ const char *format_wind_speed(struct state *state, const char *format, double ms
         return str;
 }
 
-const char *format_altitude(struct state *state, const char *format, double masl)
+const char *format_altitude(struct state *state, const char *format, double ft)
 {
         static char str[25];
-        float _altitude = state->conf.metric_units ? masl : M_TO_FT(masl);
-        char  *unit = state->conf.metric_units ? "masl" : "FT";
+        float _altitude = state->conf.metric_units ? FT_TO_M(ft) : ft;
+        char  *unit = state->conf.metric_units ? "m" : "FT";
 
         snprintf(str, sizeof(str), format, _altitude, unit);
 
@@ -1973,7 +1973,8 @@ char *make_mice_beacon(struct state *state)
         double Ldeg, Lmin;
         int lat;
         unsigned char north = mypos->lat > 0 ? 0x50 : 0x30;
-        unsigned char lonsc = (fabs(mypos->lon) >= 100) || (fabs(mypos->lon) < 10) ? 0x50 : 0x30;
+        unsigned char lonsc = (fabs(mypos->lon) >= 100) ||
+                              (fabs(mypos->lon) < 10) ? 0x50 : 0x30;
         unsigned char west = mypos->lon > 0 ? 0x30 : 0x50;
 
         unsigned char lon_deg, lon_min, lon_hun;
