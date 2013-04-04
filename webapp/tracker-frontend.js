@@ -173,6 +173,9 @@ $(function () {
         var callsign_from = $('#callsign_from');
         var callsign_to = $('#callsign_to');
         var aprsEncapWin = $('#aprsdebugwin2');
+        var confirm_action = $('#confirm_action');
+
+        var defaultbuttoncolor = document.getElementById("reset_button").style.backgroundColor;
 
         var aprsCallsignHistory = ["<p>first</p>","next"];
 
@@ -662,12 +665,67 @@ $(function () {
          * not
          */
         $('#msgack_checkbox').click(function() {
-                if($('input:checkbox[name=msg_ack_check]').is(':checked')) {
-                        addDebug('Checkbox checked');
+                if($('input:checkbox[name="msg_ack_check"]').is(':checked')) {
+                        addDebug('Checkbox ACK checked');
                         connection.send(JSON.stringify( { type: 'setconfig', data: 'ack on'} ));
                 } else {
-                        addDebug('Checkbox NOT checked');
+                        addDebug('Checkbox ACK NOT checked');
                         connection.send(JSON.stringify( { type: 'setconfig', data: 'ack off'} ));
+                }
+        });
+
+        /*
+         * query Shutdown button
+         */
+        $('#shutdown_button').click(function() {
+                addDebug('shutdown button Clicked');
+                document.getElementById("reset_button").style.backgroundColor=defaultbuttoncolor;
+                document.getElementById("shutdown_button").style.backgroundColor="lightgreen";
+                confirm_action.removeAttr('disabled').focus();
+        });
+
+        /*
+         * query reset button
+         */
+        $('#reset_button').click(function() {
+                addDebug('reset button Clicked');
+                document.getElementById("shutdown_button").style.backgroundColor=defaultbuttoncolor;
+                document.getElementById("reset_button").style.backgroundColor="lightgreen";
+                confirm_action.removeAttr('disabled').focus();
+        });
+
+        /**
+         * Send mesage when user presses Enter key
+         **/
+        confirm_action.keydown(function(e) {
+                if (e.keyCode === 13) {
+                        var msg = $(this).val();
+                        if (!msg) {
+                                return;
+                        }
+                        if(msg === 'down') {
+                                document.getElementById("shutdown_button").style.backgroundColor="red";
+                                connection.send(JSON.stringify( { type: 'sysctrl', data: 'shutoff'} ));
+                                // disable the input field
+                                confirm_action.attr('disabled', 'disabled');
+
+                        } else if(msg === 'reset') {
+                                document.getElementById("reset_button").style.backgroundColor="red";
+                                connection.send(JSON.stringify( { type: 'sysctrl', data: 'reset'} ));
+                                // disable the input field
+                                confirm_action.attr('disabled', 'disabled');
+
+                        } else {
+                                addDebug('system control action aborted: unconfirmed');
+                        }
+
+                        $(this).val('');
+                }
+                /*
+                 * Reset input on receipt of escape
+                 */
+                if (e.keyCode === 27) {
+                        confirm.attr('disabled', 'disabled');
                 }
         });
 

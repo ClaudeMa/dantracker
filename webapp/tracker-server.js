@@ -57,7 +57,6 @@ iniparser.parse(ini_file, function(err, data) {
 
 //var broadcastPort = webSocketPort + 1;
 var broadcastPort = 43256;
-var TCP_DELIMITER = '\n';
 var TCP_BUFFER_SIZE = Math.pow(2,16);
 
 
@@ -233,12 +232,14 @@ wsServer.on('request', function(request) {
                 if (message.type === 'utf8') { // accept only text
 
                         /* get data sent from users web page */
-                        console.log('Parse message: ' + message.utf8Data);
-
                         var frontendmsg = JSON.parse(message.utf8Data);
-                        console.log('Parse message 2: ' + frontendmsg.type);
 
-                        if(frontendmsg.type === "setconfig") {
+                        if(frontendmsg.type === "sysctrl") {
+                                var json = JSON.stringify({ type:'sysctrl', data: frontendmsg.data});
+                                console.log('Sending sysctrl to CPU: length =' + json.length + ' data: ' + frontendmsg.data);
+                                msg_emitter.emit("aprs_sock", json);
+
+                        } else if(frontendmsg.type === "setconfig") {
                                 var json = JSON.stringify({ type:'setconfig', data: frontendmsg.data});
                                 console.log('Sending SET config to radio: length =' + json.length + ' data: ' + frontendmsg.data);
                                 msg_emitter.emit("aprs_cfg", json);
@@ -246,7 +247,7 @@ wsServer.on('request', function(request) {
                         } else  if(frontendmsg.type === "getconfig") {
                                 var json = JSON.stringify({ type:'getconfig', data: frontendmsg.data});
                                 console.log('Sending GET config to radio: length =' + json.length + ' data: ' + frontendmsg.data);
-                                msg_emitter.emit("aprs_cfg", json);
+                                msg_emitter.emit("aprs_sock", json);
 
                         } else if(frontendmsg.type === "callsign") {
 
@@ -265,8 +266,7 @@ wsServer.on('request', function(request) {
                                 connection.sendUTF(JSON.stringify({ type:'sendto', data: destName }));
                                 console.log((new Date()) + ' Destination: ' + destName);
 
-                        }
-                        else if(frontendmsg.type === "message") {
+                        } else if(frontendmsg.type === "message") {
 
                                 // log and broadcast the message
                                 console.log((new Date()) + ' Received Message from '
@@ -362,22 +362,7 @@ net.createServer(function(sock) {
 					   { namelen: { type: 'uint16_t' } },
 					   { valuelen: { type: 'uint16_t' } }
 		]);
-/* #if 0
-		parser.typedef('point_t', [
-					   { type: { type: 'uint16_t' } },
-					   { len: { type: 'uint16_t' } },
-					   { namelen: { type: 'uint16_t' } },
-					   { valuelen: { type: 'uint16_t' } },
-					   { namevalstr: { type: 'char[2]' } }
-		]);
-		var out = parser.readData([ { point: { type: 'point_t' } } ], data, 0);
-		console.log(out);
 
-		var out1 = parser.readData([ { msg: { type: 'msg_t' } } ], data, out.point.len);
-		console.log(out1);
-
-		var parts = data.toString().split(TCP_DELIMITER);
-#endif */
 		var offset = 0;
 		var i = 0;
 		while(offset < data.length) {
@@ -487,6 +472,11 @@ net.createServer(function(sock) {
 
         msg_emitter.on("aprs_cfg", function(message) {
                 console.log('CFG: ' + message);
+                sock.write(message);
+        });
+
+        msg_emitter.on("aprs_sock", function(message) {
+                console.log('aprs_sock: ' + message);
                 sock.write(message);
         });
 

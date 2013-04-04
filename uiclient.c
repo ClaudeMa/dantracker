@@ -258,6 +258,17 @@ int ui_get_json_msg(int sock, struct ui_msg **msg, struct ui_msg *hdr)
                         strcpy(aprs_msg, data_str);
                         *msg = build_lcd_msg(MSG_SEND, UI_MSG_NAME_GETCFG, aprs_msg);
 
+                } else if(STREQ(type_str, "sysctrl")) {
+
+                        char *data_str;
+
+                        data_str = (char *)json_object_get_string(data_obj);
+
+                        printf("DEBUG: sysctrl request for %s\n",
+                               data_str);
+                        strcpy(aprs_msg, data_str);
+                        *msg = build_lcd_msg(MSG_SEND, UI_MSG_NAME_SYSCTRL, aprs_msg);
+
                 } else {
 			printf("Unhandled message type: %s\n", type_str);
 		}

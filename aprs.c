@@ -10,6 +10,7 @@
 #include <sys/time.h>
 #include <sys/select.h>
 #include <sys/stat.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 #include <time.h>
 #include <math.h>
@@ -155,7 +156,7 @@ int send_net_beacon(int fd, char *packet)
 int send_beacon(struct state *state, char *packet)
 {
         if(state->debug.console_display_filter & CONSOLE_DISPLAY_PKTOUT) {
-                printf("Packet out %s: len: %d, src: %s, pkt: %s\n",
+                printf("\nPacket out %s: len: %d, src: %s, pkt: %s\n",
                        time2str(NULL, 0), strlen(packet), state->ax25_srcaddr, packet);
         }
         if (STREQ(state->conf.tnc_type, "KISS")) {
@@ -1736,6 +1737,40 @@ int handle_display_initkiss(struct state *state)
         return 0;
 }
 
+/*
+ * System Actions - enable remote system control
+ *  - shutdown remote system
+ *  - restart aprs & spy apps
+ */
+void sys_ctrl(char *msg)
+{
+        struct utsname utsname;
+
+        if (STREQ(msg, UI_MSG_VALUE_SYSCTRL_SHUTDOWN)) {
+                if(uname(&utsname) != 0 ) {
+                        fprintf(stderr, "%s: error: %s\n",
+                                  __FUNCTION__, strerror(errno));
+                        return;
+                }
+
+                printf("Performing sysctrl action on %s machine: SHUTDOWN\n",
+                       utsname.machine);
+                /* Conditional so dev workstation doesn't power itself
+                 * off */
+                if(STRNEQ(utsname.machine, "arm", 3)) {
+                        system("shutdown -h now");
+                } else {
+                        printf("Failed to shutdown due to machine type check\n");
+                }
+
+        } else if (STREQ(msg, UI_MSG_VALUE_SYSCTRL_RESET)) {
+                printf("Performing sysctrl action: RESET\n");
+                system("at now -f/etc/tracker/tracker-restart");
+        } else {
+                printf("Unhandled sysctrl action %s\n", msg);
+        }
+}
+
 int handle_display(struct state *state)
 {
         struct ui_msg *msg = NULL;
@@ -1780,6 +1815,9 @@ int handle_display(struct state *state)
                 /* Send requested config back to web app */
                 _ui_send(state, "CF_CALL", state->mycall);
                 printf("Sent source callsign %s\n", state->mycall);
+        } else if (STREQ(name, UI_MSG_NAME_SYSCTRL)) {
+                /* sys ctrl actions never return */
+                sys_ctrl(ui_get_msg_valu(msg));
         } else {
                 printf("Display said: name: %s, value: %s\n",
                        name, ui_get_msg_valu(msg));

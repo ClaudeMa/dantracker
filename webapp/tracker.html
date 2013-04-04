@@ -39,6 +39,9 @@
         #aprsstats { padding:5px; background-color: white; border-radius:5px;
                    border:1px solid #CCC; margin-top:10px; }
 
+        #sysctrl { padding:5px; background-color: white; border-radius:5px;
+                   border:1px solid #CCC; margin-top:10px; }
+
         #aprsdebugwin { padding:5px; background-color: background-color: white; border-radius:5px;
                    border:1px solid #CCC; margin-top:10px; }
         #aprsdebugwin2 { padding:5px; background-color:RoyalBlue; border-radius:5px;
@@ -102,9 +105,10 @@
        </div>
     </div>
 
-    <div style="border:2px solid black;overflow-x:hidden;overflow-y:scroll; height: 80px"
-            id="content">
+    <div id="content" title="Message Window"
+     style="border:2px solid black;overflow-x:hidden;overflow-y:scroll; height: 80px">
     </div>
+
     <div style="padding:10px;">
        <span style="padding:5px; margin-right:5px;" >ACK message</span>
        <input type="checkbox" name="msg_ack_check" id="msgack_checkbox"></input>
@@ -135,11 +139,26 @@
              <TD id="stats_total">10</TD>
              <TD id="stats_msgcount">2</TD>
              <TD id="stats_wxcount">5</TD>
-
              <TD id="stats_encapcount">3</TD>
              <TD id=stats_errorcount>1</TD>
           </TR>
        </table>
+    </div>
+
+    <div id="sysctrl" name="sys_ctrl" title="System Control Window"
+     style="border: 1px solid black; font: Helvetica 12pt;">
+       <span style="padding:5px; margin-right:5px;" ></span>
+       <input type="button" value="Shutdown" name="shut_down_board"
+                id="shutdown_button" style="height: 25px; width:
+              100px"></input>
+
+       <span style="padding:5px; margin-right:5px;" ></span>
+       <input type="button" value="Reset" name="reset_board"
+                id="reset_button" style="height: 25px; width:
+              100px"></input>
+
+    <span style="padding:5px; margin-left:40px;">Confirm:</span>
+    <input type="text" id="confirm_action" size="8" disabled="disabled" />
     </div>
 
     <div id="aprsdebugwin" name="DebugWindow 1" title="Debug Window 1"
