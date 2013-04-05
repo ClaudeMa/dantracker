@@ -9,8 +9,6 @@ function htmlEntities(str) {
 $(function () {
 	"use strict";
 
-        /* Address of machine hosting aprs-ax25 & node.js */
-        var WebIpSock="1348";
         /* Get server IP */
         var WebIpAddr = window.location.hostname;
 
@@ -33,6 +31,8 @@ $(function () {
         // maximum number of APRS message to display in content DIV
         var maxMsgItems = 200;
 
+        /* Address of machine hosting aprs-ax25 & node.js */
+        var WebIpSock="1348";
         spyDebugWin.append('<p>' + 'Using hostname: ' + WebIpAddr + ' with sock: ' + WebIpSock + '</p>');
 
 	// if user is running mozilla then use it's built-in WebSocket

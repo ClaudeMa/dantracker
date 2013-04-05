@@ -6,20 +6,56 @@
  */
 process.title = 'spy-server';
 
-var mod_ctype = require('/usr/local/lib/node_modules/ctype');
+// Install node modules globally npm -g install <module_name>
+var global_module_dir='/usr/local/lib/node_modules/';
+
 var fs = require('fs');
+var mod_ctype = require(global_module_dir + 'ctype');
+var iniparser = require(global_module_dir + 'iniparser');
 
 // *** Network socket server
 var net = require('net');
 var NETHOST = '127.0.0.1';
-var UNIXPORT = '/tmp/N7NIX_SPYUI';
+var NETPORT = 9123;
+var UNIXPORT;
 
-// *** Web socket server
-var webSocketsServerPort = 1348;
+var HTMLPORT        // HTML server
+var webSocketPort;  // Web socket server
 
-// *** HTML server
-var HTMLPORT = 8081;
-var TCP_DELIMITER = '\n';
+// parse command line for an ini file name
+var ini_file='./aprs.ini';
+if( process.argv[2] !== undefined) {
+        ini_file=process.argv[2];
+}
+
+fs.exists(ini_file, function(exists) {
+        if (!exists) {
+                console.log('Can not open ' + ini_file + ' exiting');
+                return;
+        }
+});
+
+/**
+ * Get config from ini file
+ **/
+iniparser.parse(ini_file, function(err, data) {
+        if (err) {
+                console.log('Error: %s, failed to read %s', err.code, err.path);
+                return;
+        }
+        /*
+         * Dump all the ini file parameters
+         */
+//        var util = require('util');
+//        var ds = util.inspect(data);
+//        console.log('iniparse test, ui_net: ' + ds);
+        webSocketPort = data.ui_net.websock_port;
+        HTMLPORT = data.ui_net.html_port;
+        if( data.ui_net.unix_socket != undefined ) {
+                UNIXPORT = data.ui_net.unix_socket;
+                NETPORT = UNIXPORT;
+        }
+
 var TCP_BUFFER_SIZE = Math.pow(2,16);
 
 
@@ -30,7 +66,7 @@ var TCP_BUFFER_SIZE = Math.pow(2,16);
 var spyClients = [];
 
 // websocket and http servers
-var webSocketServer = require('/usr/local/lib/node_modules/websocket').server;
+var webSocketServer = require(global_module_dir + 'websocket').server;
 var http = require('http');
 var events = require("events");
 
@@ -51,13 +87,13 @@ fs.unlink(UNIXPORT, function(err) {
 });
 
 /**
-   * HTTP server
-   */
+  * HTTP server
+ **/
 var server = http.createServer(function(request, response) {
     // Not important for us. We're writing WebSocket server, not HTTP server
 });
-server.listen(webSocketsServerPort, function() {
-	console.log((new Date()) + " WebSocket Server is listening on port " + webSocketsServerPort);
+server.listen(webSocketPort, function() {
+	console.log((new Date()) + " WebSocket Server is listening on port " + webSocketPort);
 });
 
 spy_emitter.on("spy_display", function(message) {
@@ -78,11 +114,12 @@ spy_emitter.on("spy_display", function(message) {
  * ===================== WebSocket server ========================
  */
 var wsServer = new webSocketServer({
-    // WebSocket server is tied to a HTTP server. WebSocket request is just
-    // an enhanced HTTP request. For more info http://tools.ietf.org/html/rfc6455#page-6
-	httpServer: server
+        /* WebSocket server is tied to an HTTP server.
+         * WebSocket request is just an enhanced HTTP request.
+         * For more info http://tools.ietf.org/html/rfc6455#page-6
+         */
+        httpServer: server
 });
-
 
 // This callback function is called every time someone
 // tries to connect to the WebSocket server
@@ -183,15 +220,15 @@ net.createServer(function(sock) {
 		console.log('Unix socket connection closed at: ' + (new Date()) + 'socket address: ' + sock.remoteAddress +' '+ sock.remotePort);
 	});
 
-}).listen(UNIXPORT, NETHOST);
+}).listen(NETPORT, NETHOST);
 
-console.log((new Date()) + ' UnixSocket Server listening on ' + NETHOST +':'+ UNIXPORT);
+console.log((new Date()) + ' UnixSocket Server listening on ' + NETHOST +':'+ NETPORT);
 
 /**
  * ===================== HTML server ========================
  */
 
-var connect = require('/usr/local/lib/node_modules/connect');
+var connect = require(global_module_dir + 'connect');
 connect.createServer(
                      connect.static(__dirname),
                      function(req, res){
@@ -199,3 +236,5 @@ connect.createServer(
         res.end('You need a path, try /spy.html\n');
 }
 ).listen(HTMLPORT);
+
+});

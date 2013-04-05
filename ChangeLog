@@ -1,3 +1,12 @@
+Fri Apr  5 13:13:03 PDT 2013  Basil Gunn <basil@pacabunga.com>
+
+   * Enable spy web app to parse ini file.
+   * Make global module directory a variable.
+     Files modified:
+       aprs/tracker/webapp/spy-frontend.js
+       aprs/tracker/webapp/spy-server.js
+       aprs/tracker/examples/aprs_spy.ini
+
 Tue Apr  2 10:14:28 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
     * Fix AX.25 destination address to enable Mic-E data.
