@@ -20,6 +20,8 @@
 #define MAX_CALLSIGN  9
 #define MAX_MSGID     5
 #define KEEP_MESSAGES 8
+#define MAX_KEY_LEN 16
+#define MAX_SUBST_LINE 1024
 
 #define KEEP_PACKETS 8
 #define KEEP_POSITS  4
@@ -53,6 +55,18 @@
 #define CONSOLE_DISPLAY_FAPERR (0x08) /* Display FAP error packets */
 #define CONSOLE_DISPLAY_DEBUG  (0x80)
 
+
+typedef enum {
+        KEY_TYPE_STATIC,
+        KEY_TYPE_VARIABLE
+} key_type_t;
+
+typedef struct key_subst {
+        char *key_val;
+        int  key_type;
+} key_subst_t;
+
+extern key_subst_t keys[];
 
 /* APRS message */
 typedef struct aprsmsg {
@@ -202,6 +216,7 @@ struct state {
                 char *playback_pkt_filename;
                 int playback_time_scale;
                 int console_display_filter;
+                bool parse_ini_test;
         } debug;
 };
 
@@ -218,5 +233,6 @@ int parse_ini(char *filename, struct state *state);
 int parse_opts(int argc, char **argv, struct state *state);
 void ini_cleanup(struct state *state);
 int lookup_host(struct state *state);
+char *process_subst(struct state *state, char *src);
 
 #endif /* APRS_H */

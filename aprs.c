@@ -1829,102 +1829,6 @@ out:
         return ret;
 }
 
-/* Get a substitution value for a given key (result must be free()'d) */
-char *get_subst(struct state *state, char *key)
-{
-        char *value;
-        struct tm tm;
-        char timestr[16];
-        time_t t;
-
-        t = time(NULL);
-        localtime_r(&t, &tm);
-
-        if (STREQ(key, "index"))
-                asprintf(&value, "%i",
-                         state->comment_idx++ % state->conf.comments_count);
-        else if (STREQ(key, "mycall"))
-                value = strdup(state->mycall);
-        else if (STREQ(key, "temp1"))
-                asprintf(&value, "%.0f", state->tel.temp1);
-        else if (STREQ(key, "voltage"))
-                asprintf(&value, "%.1f", state->tel.voltage);
-        else if (STREQ(key, "sats"))
-                asprintf(&value, "%i", MYPOS(state)->sats);
-        else if (STREQ(key, "ver"))
-                asprintf(&value, "v0.1.%04i (%s)", atoi(BUILD), REVISION);
-        else if (STREQ(key, "time")) {
-                strftime(timestr, sizeof(timestr), "%H:%M:%S", &tm);
-                value = strdup(timestr);
-        } else if (STREQ(key, "date")) {
-                strftime(timestr, sizeof(timestr), "%m/%d/%Y", &tm);
-                value = strdup(timestr);
-        } else if (STREQ(key, "digiq")) {
-                int count = 0, i;
-                for (i = 0; i < 8; i++)
-                        count += (state->digi_quality >> i) & 0x01;
-                asprintf(&value, "%02d%%", (count >> 3) * 100);
-        } else
-                printf("Unknown substitution `%s'", key);
-
-        return value;
-}
-
-/* Given a string with substition variables, do the substitutions
- * and return the new result (which must be free()'d)
- */
-char *process_subst(struct state *state, char *src)
-{
-        char *str;
-        char *ptr1;
-        char *ptr2;
-
-        /* FIXME: might overrun! */
-        if( (str = malloc(strlen(src) * 4)) == NULL) {
-                printf("%s: malloc error: %s\n",
-                       __FUNCTION__, strerror(errno));
-                return str;
-        }
-
-        str[0] = 0;
-
-        for (ptr1 = src; *ptr1; ptr1++) {
-                char subst[16] = "";
-                char *value = NULL;
-
-                ptr2 = strchr(ptr1, '$');
-                if (!ptr2) {
-                        /* No more substs */
-                        strcat(str, ptr1);
-                        break;
-                }
-
-                /* Copy up to the next variable */
-                strncat(str, ptr1, ptr2-ptr1);
-
-                ptr1 = ptr2+1;
-                ptr2 = strchr(ptr1, '$');
-                if (!ptr2) {
-                        printf("Bad substitution `%s'\n", ptr1);
-                        goto err;
-                }
-
-                strncpy(subst, ptr1, ptr2-ptr1);
-                ptr1 = ptr2;
-
-                value = get_subst(state, subst);
-                if (value) {
-                        strcat(str, value);
-                        free(value);
-                }
-        }
-
-        return str;
- err:
-        free(str);
-        return NULL;
-}
-
 char *get_comment(struct state *state)
 {
         int cmt = state->comment_idx++ % state->conf.comments_count;
@@ -2663,7 +2567,12 @@ int main(int argc, char **argv)
 #ifdef HAVE_AX25_TRUE
                 state.tncfd = aprsax25_connect(&state);
                 pr_debug("tnc type is AX25 try aprsax25_connect to %s, socket=%d\n",
-                       state.conf.aprs_path, state.tncfd);
+                         state.conf.aprs_path, state.tncfd);
+                if (state.tncfd < 0) {
+                        printf("Sock %i: %m\n", state.tncfd);
+                        return -1;
+                }
+
 #else
                 printf("%s:%s(): tracker tnc type has been configured to use AX.25 but AX.25 lib has not been installed.\n",
                        __FILE__, __FUNCTION__);

@@ -22,6 +22,23 @@
 
 #define TIER2_HOST_NAME ".aprs2.net"
 
+/*
+ * If the order of struct items below are changed
+ * then need to change switch statement in get_keysubst()
+ */
+key_subst_t keys[] = {
+        {"index",   KEY_TYPE_VARIABLE},
+        {"mycall",  KEY_TYPE_STATIC},
+        {"temp1",   KEY_TYPE_VARIABLE},
+        {"voltage", KEY_TYPE_VARIABLE},
+        {"sats",    KEY_TYPE_VARIABLE},
+        {"ver",     KEY_TYPE_STATIC},
+        {"time",    KEY_TYPE_VARIABLE},
+        {"date",    KEY_TYPE_VARIABLE},
+        {"digiq",   KEY_TYPE_VARIABLE},
+        {NULL, 0}
+};
+
 void usage(char *argv0)
 {
         printf("Usage:\n"
@@ -187,17 +204,318 @@ char **parse_list(char *string, int *count)
         return list;
 }
 
+/*
+ * Check for a substitution key  $key$
+ */
+bool has_key(char *str)
+{
+        char * keydelim_1;
+        char * keydelim_2;
+        bool retcode = false;
+
+        if( (keydelim_1 = strchr(str, '$')) == NULL) {
+                return false;
+        }
+        if( (keydelim_2 = strrchr(str, '$')) == NULL) {
+                return false;
+        }
+        if(keydelim_2 != keydelim_1) {
+                retcode = true;
+        }
+        return retcode;
+}
+
+/*
+ * Return pointer to first character in string past last key value
+ * delimiter.
+ */
+char *get_key(char *cfg_line, char *key_val)
+{
+        char *keydelim;
+        int key_len;
+
+        if( (keydelim = strchr(cfg_line, '$')) == NULL) {
+                return NULL;
+        }
+        /* point past first $ */
+        keydelim++;
+
+        /* get length of key */
+        if((key_len = strcspn(keydelim, "$")) == 0 ) {
+                return NULL;
+        }
+
+        /* copy found key to supplied key pointer */
+        strncpy(key_val, keydelim, key_len);
+        key_val[key_len] = '\0';
+
+        return(keydelim+ key_len + 1);
+}
+
+/*
+ * Return index into struct array for key string.
+ * or -1 if it doesn't exist
+ */
+int check_key(char *keystr) {
+
+        int i = 0;
+
+        while(keys[i].key_val != NULL) {
+                if(STREQ(keystr, keys[i].key_val)) {
+                        return i;
+                }
+                i++;
+        }
+
+        return -1;
+}
+
+/* Get a substitution value for a given key (result must be free()'d) */
+char *get_keysubst(struct state *state, int keyind)
+{
+        char *value = NULL;
+        struct tm tm;
+        char timestr[16];
+        time_t t;
+
+        switch (keyind) {
+                case 0: /* index */
+                        asprintf(&value, "%i",
+                                 state->comment_idx++ % state->conf.comments_count);
+                        break; /* mycall */
+                case 1:
+                        value = strdup(state->basecall);
+                        break;
+                case 2: /* temp1 */
+                        asprintf(&value, "%.0f", state->tel.temp1);
+                        break;
+                case 3: /* voltage */
+                        asprintf(&value, "%.1f", state->tel.voltage);
+                        break;
+                case 4: /* sats */
+                        asprintf(&value, "%i", MYPOS(state)->sats);
+                        break;
+                case 5: /* ver */
+                        asprintf(&value, "v0.1.%04i (%s)", atoi(BUILD), REVISION);
+                        break;
+                case 6: /* time */
+                        t = time(NULL);
+                        localtime_r(&t, &tm);
+                        strftime(timestr, sizeof(timestr), "%H:%M:%S", &tm);
+                        value = strdup(timestr);
+                        break;
+                case 7: /* date */
+                        t = time(NULL);
+                        localtime_r(&t, &tm);
+                        strftime(timestr, sizeof(timestr), "%m/%d/%Y", &tm);
+                        value = strdup(timestr);
+                        break;
+                case 8: /* digiq */
+                        {
+                        int count = 0, i;
+                        for (i = 0; i < 8; i++)
+                                count += (state->digi_quality >> i) & 0x01;
+                        asprintf(&value, "%02d%%", (count >> 3) * 100);
+                        }
+                        break;
+                default:
+                        fprintf(stderr, "%s: Bad key index %d",__FUNCTION__, keyind);
+                        break;
+        }
+
+        return value;
+}
+
+/* Given a string with substitution variables, do the first substitutions
+ * and return the sub string for the substitution.
+ * Also return an index to the string after the substitution variable.
+ */
+char *process_single_key(struct state *state, char *src, int keyindex)
+{
+        char *str, *dupstr;
+        char *ptr1;
+        char *ptr2;
+        char key[MAX_KEY_LEN] = "";
+        char *value = NULL;
+        int linesize_nokey = strlen(src);
+
+        /* get enough memory to hold string plus substituted key */
+        if( (str = malloc(MAX_SUBST_LINE)) == NULL) {
+                fprintf(stderr, "%s: malloc error: %s\n",
+                       __FUNCTION__, strerror(errno));
+                return str;
+        }
+
+        str[0] = 0;
+        ptr1 = src;
+
+        if(src != NULL && ((ptr2 = strchr(ptr1, '$')) !=NULL)) {
+
+                /* Copy up to the next variable */
+                strncat(str, ptr1, ptr2-ptr1);
+
+                ptr1 = ptr2+1;
+                ptr2 = strchr(ptr1, '$');
+                if (!ptr2) {
+                        fprintf(stderr, "%s: Bad substitution `%s'\n",
+                                  __FUNCTION__, ptr1);
+                        goto err;
+                }
+
+                /* make a copy of the key */
+                strncpy(key, ptr1, ptr2 - ptr1);
+                /* reduce line size by key size $key$ */
+                linesize_nokey -= ((ptr2 - ptr1) + 2);
+
+                value = get_keysubst(state, keyindex);
+                if (value) {
+                        /* test for overflow */
+                        if(strlen(value) + linesize_nokey > MAX_SUBST_LINE - 1) {
+                                fprintf(stderr, "%s: Substitution line overflow `%s'\n",
+                                          __FUNCTION__, src);
+                                goto err;
+                        }
+                        strcat(str, value);
+                        free(value);
+                }
+                /* malloc'd a generous amount of memory for the initial string
+                 * substitution, adjust size of allocated memory for this string */
+                dupstr = strdup(str);
+                free(str);
+                return dupstr;
+        }
+err:
+        free(str);
+        return NULL;
+}
+
+char *key_subst(struct state *state, char *key_line, char* buildstr)
+{
+        char keyval[MAX_KEY_LEN];
+        char *newstr;
+        char *newkey_line;
+        int key_ind;
+
+
+        newkey_line = get_key( key_line, keyval);
+
+        if( (newkey_line != NULL) && ((key_ind=check_key(keyval)) == -1) ) {
+                fprintf(stderr, "ERROR: no key found for %s in line:\n%s\n",
+                          keyval, key_line);
+                return NULL;
+        }
+        if(keys[key_ind].key_type == KEY_TYPE_STATIC || state->debug.parse_ini_test) {
+                newstr = process_single_key(state, key_line, key_ind);
+                if(newstr != NULL) {
+                        strcat(buildstr, newstr);
+                        free(newstr);
+                }
+
+        } else {
+                /* copy unmodified string */
+                strncat(buildstr, key_line, newkey_line-key_line);
+        }
+        return (newkey_line);
+}
+
+
+/* Given a string with substitution variables, do the substitutions
+ * and return the new result (which must be free()'d)
+ */
+char *process_subst(struct state *state, char *src)
+{
+        char *str, *dupstr;
+        char *ptr1;
+        char *ptr2;
+        int linesize_nokey = strlen(src);
+
+        /* get enough memory to hold string plus substituted key(s) */
+        if( (str = malloc(MAX_SUBST_LINE)) == NULL) {
+                printf("%s: malloc error: %s\n",
+                       __FUNCTION__, strerror(errno));
+                return str;
+        }
+
+        str[0] = 0;
+
+        for (ptr1 = src; *ptr1; ptr1++) {
+                char key[MAX_KEY_LEN] = "";
+                char *value = NULL;
+
+                ptr2 = strchr(ptr1, '$');
+                if (!ptr2) {
+                        /* No more substs */
+                        strcat(str, ptr1);
+                        break;
+                }
+
+                /* Copy up to the next variable */
+                strncat(str, ptr1, ptr2-ptr1);
+
+                ptr1 = ptr2+1;
+                ptr2 = strchr(ptr1, '$');
+                if (!ptr2) {
+                        printf("Bad substitution `%s'\n", ptr1);
+                        goto err;
+                }
+
+                /* make a copy of the key */
+                strncpy(key, ptr1, ptr2 - ptr1);
+                /* reduce line size by key size $key$ */
+                linesize_nokey -= ((ptr2 - ptr1) + 2);
+
+                ptr1 = ptr2;
+
+                value = get_keysubst(state, check_key(key));
+                if (value) {
+                        /* test for overflow */
+                        if(strlen(value) + linesize_nokey > MAX_SUBST_LINE - 1) {
+                                printf("Substitution line overflow `%s'\n", src);
+                                goto err;
+                        }
+                        linesize_nokey += strlen(value);
+                        strcat(str, value);
+                        free(value);
+                }
+        }
+
+        /* malloc'd a generous amount of memory for the initial string
+         * substitution, adjust size of allocated memory for this string */
+        dupstr = strdup(str);
+        free(str);
+        return dupstr;
+err:
+        free(str);
+        return NULL;
+}
+
 int parse_ini(char *filename, struct state *state)
 {
         dictionary *ini;
         char *tmp, *basecallsign;
         static char *socketpath;
+        char **subst_str[25];
+        int subst_line_cnt = 0;
 
         ini = iniparser_load(filename);
         if (ini == NULL)
                 return -EINVAL;
 
         state->conf.ini_dict = ini; /* save the ini parser dictionary */
+
+         /* Manually set which packets to display on console
+         *  until the parser can handle it */
+        state->debug.console_display_filter |= (CONSOLE_DISPLAY_MSG | CONSOLE_DISPLAY_PKTOUT);
+
+        /* To disable the record and playback pkt functions comment
+         * out the appropriate line in the ini file.
+         */
+        state->debug.record_pkt_filename = iniparser_getstring(ini, "debug:record", NULL);
+        state->debug.playback_pkt_filename = iniparser_getstring(ini, "debug:playback", NULL);
+        state->debug.playback_time_scale = iniparser_getint(ini, "debug:playback_scale", 1);
+        tmp = iniparser_getstring(ini, "debug:parse_ini_test", "OFF");
+        strupper(tmp);
+        state->debug.parse_ini_test = STREQ(tmp, "OFF") ? false : true;
 
         if (!state->conf.tnc)
                 state->conf.tnc = iniparser_getstring(ini, "tnc:port", NULL);
@@ -223,11 +541,10 @@ int parse_ini(char *filename, struct state *state)
 
         /* Get the AX25 device filter setting */
         tmp = iniparser_getstring(ini, "ax25:device_filter", "OFF");
-
         strupper(tmp);
-        if(strcmp(tmp, "OFF") == 0) {
+        if(STREQ(tmp, "OFF")) {
                 state->conf.ax25_pkt_device_filter = AX25_PKT_DEVICE_FILTER_OFF;
-        } else if(strcmp(tmp, "ON") == 0) {
+        } else if(STREQ(tmp, "ON")) {
                 state->conf.ax25_pkt_device_filter = AX25_PKT_DEVICE_FILTER_ON;
         } else {
                 state->conf.ax25_pkt_device_filter = AX25_PKT_DEVICE_FILTER_UNDEFINED;
@@ -250,7 +567,7 @@ int parse_ini(char *filename, struct state *state)
                 return(-1);
         }
 
-        if(strcmp(basecallsign, "NOCALL") == 0 ) {
+        if(STREQ(basecallsign, "NOCALL")) {
                 printf("Configure file %s with your callsign\n",
                        state->conf.config ? state->conf.config : "aprs.ini");
                 return(-1);
@@ -265,6 +582,10 @@ int parse_ini(char *filename, struct state *state)
          * UNIX socket path */
         asprintf(&socketpath, "/tmp/%s_UI", basecallsign);
         state->conf.ui_sock_path = iniparser_getstring(ini, "ui_net:unix_socket", socketpath);
+        if(has_key(state->conf.ui_sock_path)) {
+                subst_str[subst_line_cnt] = &state->conf.ui_sock_path;
+                subst_line_cnt++;
+        }
 
         state->conf.ui_inet_port = iniparser_getint(ini, "ui_net:inet_port", 9123);
 
@@ -376,27 +697,51 @@ int parse_ini(char *filename, struct state *state)
                         state->conf.comments[i] = iniparser_getstring(ini,
                                 section,
                                 "INVAL");
+                        if(has_key(state->conf.comments[i])) {
+                                subst_str[subst_line_cnt] = &state->conf.comments[i];
+                                subst_line_cnt++;
+                        }
                 }
         }
-
-        /* Manually set which packets to display on console */
-        state->debug.console_display_filter |= CONSOLE_DISPLAY_MSG;
-
-        /* To disable the record and playback pkt functions comment
-         * out the appropriate line in the ini file.
-         */
-        state->debug.record_pkt_filename = iniparser_getstring(ini, "debug:record", NULL);
-        state->debug.playback_pkt_filename = iniparser_getstring(ini, "debug:playback", NULL);
-        state->debug.playback_time_scale = iniparser_getint(ini, "debug:playback_scale", 1);
 
         /*
          * Check that mycall has been set in ini file
          */
         if (STREQ(state->mycall, "NOCALL")) {
-                printf("ERROR: Please config ini file with your call sign\n");
+                fprintf(stderr, "ERROR: Please config ini file with your call sign\n");
                 return -1;
         }
 
+        /* Any substitution keys found?
+         * Process any static substitution keys */
+        if(subst_line_cnt > 0) {
+                int i;
+                char *subst_line;
+                char *key_line;
+                char buildstr[MAX_SUBST_LINE];
+                int key_count = 0;
+
+                /* iterate through collected lines with found key values */
+                for(i = 0; i < subst_line_cnt; i++) {
+                        buildstr[0] = '\0';
+
+                        key_line = *subst_str[i];
+                        subst_line = *subst_str[i];
+                        while(key_line != NULL && (strlen(key_line) > 0)) {
+                                key_line = key_subst(state, key_line, buildstr);
+                                if(key_line != NULL) {
+                                        key_count++;
+                                }
+                        }
+                        printf("Final str: %s\n", buildstr);
+                        *subst_str[i] = strdup(buildstr);
+                }
+                printf("Processed %d lines, total keys: %d\n", subst_line_cnt, key_count);
+        }
+        /* Exit if just testing ini parser */
+        if(state->debug.parse_ini_test) {
+                exit(0);
+        }
         return 0;
 }
 
