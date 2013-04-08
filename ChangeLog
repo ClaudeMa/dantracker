@@ -1,3 +1,16 @@
+Mon Apr  8 15:31:09 PDT 2013  Basil Gunn <basil@pacabunga.com>
+
+    * Enable parsing substitution keys a key at a time instead of a
+      line at a time. This allows doing substitution on static variables at
+      parse ini time.
+    * Move substitution code from aprs.c to conf.c
+    * Add way to verify substitution keys at parse ini time.
+      Files modified:
+        aprs/tracker/conf.c
+        aprs/tracker/aprs.c
+        aprs/tracker/aprs.h
+        aprs/tracker/examples/aprs_tracker.ini
+
 Fri Apr  5 13:13:03 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
    * Enable spy web app to parse ini file.
