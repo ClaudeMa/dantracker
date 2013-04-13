@@ -660,14 +660,15 @@ int live_packets(struct state *state)
 
         /* Live packet handling */
         state->tncfd = aprsax25_connect(state);
+        printf("Debug: aprsax25_connect: 0x%02x\n", state->tncfd);
         if (state->tncfd < 0) {
                 printf("Sock %i: %m\n", state->tncfd);
-                return 1;
+                return -1;
         }
 
 #ifdef SPY_SOCK_ENABLE
         if((ui_sock = ui_sock_wait(state)) < 0) {
-                return 1;
+                return -1;
         }
 #endif /*  SPY_SOCK_ENABLE */
 
@@ -721,7 +722,7 @@ int live_packets(struct state *state)
                         break;
                 }
         }
-        return 0;
+        return 1;
 }
 
 int main(int argc, char **argv)
