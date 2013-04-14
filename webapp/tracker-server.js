@@ -48,8 +48,21 @@ iniparser.parse(ini_file, function(err, data) {
 //        var util = require('util');
 //        var ds = util.inspect(data);
 //        console.log('iniparse test, ui_net: ' + ds);
+
+        console.log("Check ini parameters websock: " +  data.ui_net.webSocketPort + " html port: " + data.ui_net.html_port);
+
         webSocketPort = data.ui_net.websock_port;
+        if( data.ui_net.websock_port === undefined ) {
+                console.log('ini parse error: No web socket port defined, exiting');
+                return;
+        }
+
         HTMLPORT = data.ui_net.html_port;
+        if( data.ui_net.html_port === undefined ) {
+                console.log('ini parse error: No html port defined, exiting');
+                return;
+        }
+
         if( data.ui_net.unix_socket != undefined ) {
                 UNIXPORT = data.ui_net.unix_socket;
                 NETPORT = UNIXPORT;
@@ -92,74 +105,6 @@ function htmlEntities(str) {
 	return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;')
 			.replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-
-var getNetworkIP = (function () {
-	var ignoreRE = /^(127\.0\.0\.1|::1|fe80(:1)?::1(%.*)?)$/i;
-
-	var exec = require('child_process').exec;
-	var cached;
-	var command;
-	var filterRE;
-
-	switch (process.platform) {
-		// TODO: implement for OSs without ifconfig command
-	case 'darwin':
-			command = 'ifconfig eth0';
-			filterRE = /\binet\s+([^\s]+)/g;
-			// filterRE = /\binet6\s+([^\s]+)/g; // IPv6
-				      break;
-	default:
-		command = 'ifconfig eth0';
-		filterRE = /\binet\b[^:]+:\s*([^\s]+)/g;
-		// filterRE = /\binet6[^:]+:\s*([^\s]+)/g; // IPv6
-			      break;
-	}
-
-	return function (callback, bypassCache) {
-		// get cached value
-		if (cached && !bypassCache) {
-			callback(null, cached);
-			return;
-		}
-		// system call
-		exec(command, function (error, stdout, sterr) {
-			var ips = [];
-			// extract IPs
-			var matches = stdout.match(filterRE);
-			// JS has no lookbehind REs, so we need a trick
-			for (var i = 0; i < matches.length; i++) {
-				ips.push(matches[i].replace(filterRE, '$1'));
-			}
-
-			// filter BS
-			for (var i = 0, l = ips.length; i < l; i++) {
-				if (!ignoreRE.test(ips[i])) {
-				    //if (!error) {
-				    cached = ips[i];
-			   	    //}
-				    callback(error, ips[i]);
-			 	    return;
-				}
-			}
-			// nothing found
-			callback(error, null);
-		});
-	};
-})();
-/*
-   * Broadcast server
-   */
-getNetworkIP(function (error, ip) {
-	console.log(ip);
-	if (error) {
-		console.log('error:', error);
-	} else {
-		serverIPaddress = ip;
-	}
-	console.log('Saving local ip address: ' + serverIPaddress);
-	return ip;
-}, false);
-
 
 // Array with some colors, don't use the background color, currently orange
    var colors = [ 'red', 'green', 'blue', 'magenta', 'purple', 'plum', 'GreenYellow', 'DarkKhaki', 'Brown', 'SaddleBrown', 'SteelBlue' ];
@@ -484,34 +429,6 @@ net.createServer(function(sock) {
 
 console.log('Server listening on ' + NETHOST +':'+ NETPORT);
 
-/* Every 5 seconds broadcast ip address */
-/*
-var clockID = setInterval(function() {
-	var serverName = '#dantracker: ';
-	var broadcastMessageSize = serverName.length + serverIPaddress.length +1;
-	var broadcastThis = serverName + serverIPaddress;
-	var broadcastMessage = new Buffer(broadcastThis);
-//	broadcastMessage =  serverName + serverIPaddress;
-	var baddr = '255.255.255.255';
-
-
-//	console.log("DEBUG 1: sending datagram - " + broadcastMessage);
-	console.log("DEBUG 1: sending datagram on address: " + baddr + " Port: " + broadcastPort);
-
-	var client = dgramServer.createSocket("udp4");
-	client.bind(broadcastPort);
-	client.setBroadcast(true);
-
-	var address = client.address();
-//	console.log("DEBUG 2: server listening " + address.address + ":" + address.port);
-
-	client.send(broadcastMessage, 0, broadcastMessage.length, broadcastPort, baddr, function(err, bytes) {
-		client.close();
-	});
-
-}, 20000);
-
-*/
 
 /**
  * ===================== HTML server ========================

@@ -50,7 +50,17 @@ iniparser.parse(ini_file, function(err, data) {
 //        var ds = util.inspect(data);
 //        console.log('iniparse test, ui_net: ' + ds);
         webSocketPort = data.ui_net.websock_port;
+        if( data.ui_net.webSocketPort === 'undefined' ) {
+                console.log('ini parse error: No web socket port defined, exiting');
+                return;
+        }
+
         HTMLPORT = data.ui_net.html_port;
+        if( data.ui_net.html_port === 'undefined' ) {
+                console.log('ini parse error: No html port defined, exiting');
+                return;
+        }
+
         if( data.ui_net.unix_socket != undefined ) {
                 UNIXPORT = data.ui_net.unix_socket;
                 NETPORT = UNIXPORT;

@@ -1,8 +1,21 @@
+Sun Apr 14 09:55:17 PDT 2013   Basil Gunn <basil@pacabunga.com>
+
+    * Test for html & web sockets being undefined.
+    * Remove code that determined IP address of server.
+     Files modified:
+       webapp/spy-server.js
+       webapp/tracker-server.js
+
+Sun Apr 14 09:41:01 PDT 2013   Basil Gunn <basil@pacabunga.com>
+
+    * Add install script & install target to Makefile
+      File added: install.sh
+      File modified: Makefile
 
 Sun Apr 14 09:05:49 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
     * Fix date not set at aprs start up.
-    * Simply startup script but removing callsign from aprs logfile.
+    * Simplify startup script but removing callsign from aprs logfile.
     * Check more characters when verifying machine type for power down.
       File modified: aprs.c
 
