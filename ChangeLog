@@ -1,4 +1,11 @@
-Sun Apr 14 09:55:17 PDT 2013   Basil Gunn <basil@pacabunga.com>
+Sun Apr 14 10:15:30 PDT 2013  Basil Gunn <basil@pacabunga.com>
+
+    * Change file locations for screen cfg to match new install procedure.
+     Files modified:
+        scripts/.screenrc.trk
+        scripts/.screenrc.spy
+
+Sun Apr 14 09:55:17 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
     * Test for html & web sockets being undefined.
     * Remove code that determined IP address of server.
@@ -6,7 +13,7 @@ Sun Apr 14 09:55:17 PDT 2013   Basil Gunn <basil@pacabunga.com>
        webapp/spy-server.js
        webapp/tracker-server.js
 
-Sun Apr 14 09:41:01 PDT 2013   Basil Gunn <basil@pacabunga.com>
+Sun Apr 14 09:41:01 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
     * Add install script & install target to Makefile
       File added: install.sh
