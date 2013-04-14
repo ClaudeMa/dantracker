@@ -1579,7 +1579,7 @@ int set_time(struct state *state)
          * variation in system time of more than 7 seconds causing bad
          * things to happen.
          */
-        else if (!HAS_BEEN(state->last_time_set, 60*60*24)) {
+        else if (state->last_time_set && !HAS_BEEN(state->last_time_set, 60*60*24)) {
                 return 1; /* Too recent */
         }
 
@@ -1757,7 +1757,7 @@ void sys_ctrl(char *msg)
                        utsname.machine);
                 /* Conditional so dev workstation doesn't power itself
                  * off */
-                if(STRNEQ(utsname.machine, "arm", 3)) {
+                if(STRNEQ(utsname.machine, "armv5tel", 5)) {
                         system("shutdown -h now");
                 } else {
                         printf("Failed to shutdown due to machine type check\n");
@@ -2250,8 +2250,8 @@ int should_beacon(struct state *state)
                 return 0;
         } else if (req == -1)
                 return 1;
-        else
-                return delta > req;
+
+        return delta > req;
 }
 
 int beacon(struct state *state)
@@ -2261,8 +2261,9 @@ int beacon(struct state *state)
         int ret;
 
         /* Don't even check but every half-second */
-        if (!HAS_BEEN(max_beacon_check, 0.5))
+        if (!HAS_BEEN(max_beacon_check, 0.5)) {
                 return 0;
+        }
 
         max_beacon_check = time(NULL);
 
@@ -2304,7 +2305,7 @@ int redir_log(struct state *state)
         int fd;
         char *fname=NULL;
 
-        asprintf(&fname, "/tmp/aprs_%s.log", state->basecall);
+        asprintf(&fname, "/tmp/aprs_tracker.log");
 
         fd = open(fname, O_WRONLY|O_TRUNC|O_CREAT, 0644);
         if (fd < 0) {
@@ -2566,12 +2567,12 @@ int main(int argc, char **argv)
         } else if (STREQ(state.conf.tnc_type, "AX25")) {
 #ifdef HAVE_AX25_TRUE
                 state.tncfd = aprsax25_connect(&state);
-                pr_debug("tnc type is AX25 try aprsax25_connect to %s, socket=%d\n",
-                         state.conf.aprs_path, state.tncfd);
                 if (state.tncfd < 0) {
                         printf("Sock %i: %m\n", state.tncfd);
                         return -1;
                 }
+                pr_debug("tnc type is AX25 try aprsax25_connect to %s, socket=%d\n",
+                         state.conf.aprs_path, state.tncfd);
 
 #else
                 printf("%s:%s(): tracker tnc type has been configured to use AX.25 but AX.25 lib has not been installed.\n",

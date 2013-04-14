@@ -1,7 +1,15 @@
+
+Sun Apr 14 09:05:49 PDT 2013  Basil Gunn <basil@pacabunga.com>
+
+    * Fix date not set at aprs start up.
+    * Simply startup script but removing callsign from aprs logfile.
+    * Check more characters when verifying machine type for power down.
+      File modified: aprs.c
+
 Sat Apr 13 15:29:44 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
     * Fix socket connection return codes
-      File modified:  aprs/tracker/aprs-ax25.c
+      File modified:  aprs-ax25.c
 
 Mon Apr  8 15:31:09 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
@@ -11,19 +19,19 @@ Mon Apr  8 15:31:09 PDT 2013  Basil Gunn <basil@pacabunga.com>
     * Move substitution code from aprs.c to conf.c
     * Add way to verify substitution keys at parse ini time.
       Files modified:
-        aprs/tracker/conf.c
-        aprs/tracker/aprs.c
-        aprs/tracker/aprs.h
-        aprs/tracker/examples/aprs_tracker.ini
+        conf.c
+        aprs.c
+        aprs.h
+        examples/aprs_tracker.ini
 
 Fri Apr  5 13:13:03 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
    * Enable spy web app to parse ini file.
    * Make global module directory a variable.
      Files modified:
-       aprs/tracker/webapp/spy-frontend.js
-       aprs/tracker/webapp/spy-server.js
-       aprs/tracker/examples/aprs_spy.ini
+       webapp/spy-frontend.js
+       webapp/spy-server.js
+       examples/aprs_spy.ini
 
 Tue Apr  2 10:14:28 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
