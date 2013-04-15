@@ -1,3 +1,11 @@
+Mon Apr 15 13:13:19 PDT 2013  Basil Gunn <basil@pacabunga.com>
+
+    * Add patch file for libfap to enable encapsulated packet parsing.
+      This patch also fixes some valgrind memory reports.
+    * Added notes on applying patch to README
+      File modified: README
+      File Added: fap_patch.n7nix
+
 Sun Apr 14 10:15:30 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
     * Change file locations for screen cfg to match new install procedure.
