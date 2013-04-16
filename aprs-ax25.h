@@ -10,6 +10,6 @@ bool packet_qualify(struct state *state, struct sockaddr *sa, unsigned char *buf
 void fap_conversion_debug(char *rxbuf, char *buf, int size);
 int get_ax25packet(struct state *state, char *buffer, unsigned int *len);
 int aprsax25_connect(struct state *state);
-int send_ax25_beacon(struct state *state, char *packet);
+bool send_ax25_beacon(struct state *state, char *packet);
 
 #endif /* APRS_AX25_H */

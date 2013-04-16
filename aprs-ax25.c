@@ -284,7 +284,7 @@ int aprsax25_connect(struct state *state)
         return(rx_sock);
 }
 
-int send_ax25_beacon(struct state *state, char *packet)
+bool send_ax25_beacon(struct state *state, char *packet)
 {
         char buf[512];
         char destcall[8];

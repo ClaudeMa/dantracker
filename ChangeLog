@@ -1,3 +1,20 @@
+Mon Apr 15 19:41:07 PDT 2013  Basil Gunn <basil@pacabunga.com>
+
+    * Split out aprs messaging code from aprs.c and put in new file aprs-msg.c
+    * Fix compile errors found with OpenSuSE 12.3 64 bits.
+      * Thanks to David Quental
+      File added: aprs-msg.c
+      Files modified:
+        aprs.c
+        aprs.h
+        aprs-ax25.c
+        aprs-ax25.h
+        Makefile
+        util.h
+
+    * Add debug code.
+      File modified: conf.c
+
 Mon Apr 15 13:13:19 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
     * Add patch file for libfap to enable encapsulated packet parsing.

@@ -346,7 +346,7 @@ char *process_single_key(struct state *state, char *src, int keyindex)
                 return str;
         }
 
-        str[0] = 0;
+        str[0] = '\0';
         ptr1 = src;
 
         if(src != NULL && ((ptr2 = strchr(ptr1, '$')) !=NULL)) {
@@ -406,6 +406,10 @@ char *key_subst(struct state *state, char *key_line, char* buildstr)
         }
         if(keys[key_ind].key_type == KEY_TYPE_STATIC || state->debug.parse_ini_test) {
                 newstr = process_single_key(state, key_line, key_ind);
+#ifdef DEBUG
+                printf("Processed single key: %s, key: %s, remaining: %d\n",
+                       newstr, keyval, strlen(newkey_line));
+#endif /* DEBUG */
                 if(newstr != NULL) {
                         strcat(buildstr, newstr);
                         free(newstr);
@@ -505,7 +509,7 @@ int parse_ini(char *filename, struct state *state)
 
          /* Manually set which packets to display on console
          *  until the parser can handle it */
-        state->debug.console_display_filter |= (CONSOLE_DISPLAY_MSG | CONSOLE_DISPLAY_PKTOUT);
+        state->debug.console_display_filter |= (CONSOLE_DISPLAY_MSG | CONSOLE_DISPLAY_PKTOUT | CONSOLE_DISPLAY_FAPERR);
 
         /* To disable the record and playback pkt functions comment
          * out the appropriate line in the ini file.
@@ -728,9 +732,16 @@ int parse_ini(char *filename, struct state *state)
                         key_line = *subst_str[i];
                         subst_line = *subst_str[i];
                         while(key_line != NULL && (strlen(key_line) > 0)) {
+#ifdef DEBUG
+                                printf("parse key in: %s\n", key_line);
+#endif /* DEBUG */
                                 key_line = key_subst(state, key_line, buildstr);
                                 if(key_line != NULL) {
                                         key_count++;
+#if DEBUG
+                                        printf("Building string: count %d, remaining str: %s\n",
+                                               key_count, key_line);
+#endif /* DEBUG */
                                 }
                         }
                         printf("Final str: %s\n", buildstr);
@@ -750,4 +761,3 @@ void ini_cleanup(struct state *state)
         /* free the previously loaded dictionary */
         iniparser_freedict(state->conf.ini_dict);
 }
-

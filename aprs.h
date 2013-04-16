@@ -234,5 +234,16 @@ int parse_opts(int argc, char **argv, struct state *state);
 void ini_cleanup(struct state *state);
 int lookup_host(struct state *state);
 char *process_subst(struct state *state, char *src);
+void display_fap_pkt(char *string, fap_packet_t *fap);
+int _ui_send(struct state *state, const char *name, const char *value);
+int store_packet(struct state *state, fap_packet_t *fap);
+fap_packet_t *dan_parseaprs(char *string, int len, int isax25);
+void display_fap_error(char *string, struct state *state, fap_packet_t *fap);
+
+bool send_kiss_beacon(int fd, char *packet);
+bool send_net_beacon(int fd, char *packet);
+
+/* Debug only */
+void fap_free_wrapper(char *dispStr,  struct state *state, fap_packet_t *fap);
 
 #endif /* APRS_H */

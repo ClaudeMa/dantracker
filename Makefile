@@ -50,11 +50,11 @@ CFLAGS+=-DWEBAPP
 LIBS+=-ljson-c
 endif
 
-.PHONY :  images clean sync
+.PHONY :  images clean sync install
 
 all : $(TARGETS) images
 
-aprs.o: aprs.c uiclient.c serial.c nmea.c aprs-is.c aprs-ax25.c conf.c util.o util.h aprs.h Makefile
+aprs.o: aprs.c uiclient.c serial.c nmea.c aprs-is.c aprs-ax25.c aprs-msg.c conf.c util.o util.h aprs.h Makefile
 uiclient.o: uiclient.c ui.h util.c util.h Makefile
 aprs-is.o: aprs-is.c conf.c util.c aprs-is.h util.h aprs.h Makefile
 aprs-ax25.o: aprs-ax25.c aprs-ax25.h aprs.h conf.c util.c aprs-is.h util.h Makefile ax25dump.c
@@ -67,7 +67,7 @@ crc.o: crc.c
 faptest.o: faptest.c
 
 
-aprs: aprs.o uiclient.o nmea.o aprs-is.o serial.o aprs-ax25.o conf.o util.o
+aprs: aprs.o uiclient.o nmea.o aprs-is.o serial.o aprs-ax25.o aprs-msg.o conf.o util.o
 #	@echo "libs: $(LIBS), cflags: $(CFLAGS), libax25: $(LIBAX25), build: $(BUILD), rev: $(REVISION)"
 	test -d .hg && hg id --id > .revision || true
 	echo $$((`cat .build` + 1)) > .build
@@ -99,3 +99,16 @@ clean:
 
 sync:
 	scp -r *.c *.h Makefile tools images .revision .build $(DEST)
+
+# copy node.js files to /usr/share/dantracker/
+# use rsync to create possible missing directories
+install:
+	rsync -a examples/aprs_spy.ini /etc/tracker
+	cp examples/aprs_spy.ini /etc/tracker
+	cp scripts/tracker* /etc/tracker
+	cp scripts/.screenrc.trk /etc/tracker
+	cp scripts/.screenrc.spy /etc/tracker
+	rsync -a --cvs-exclude --include "*.js" --include "*.html" --exclude "*" webapp/ /usr/share/dantracker/
+	cp aprs /usr/local/bin
+	cp aprs-ax25 /usr/local/bin
+

@@ -29,6 +29,9 @@
 #define RAD2DEG(x) (x/(PI/180))
 #define MYPOS(s) (&(s)->mypos[(s)->mypos_idx])
 
+#define OBJNAME(p) ((p)->object_or_item_name ? (p)->object_or_item_name : \
+                    (p)->src_callsign)
+
 const char *direction(double degrees);
 char *get_escaped_string(char *string);
 double get_direction(double fLng, double fLat, double tLng, double tLat);
