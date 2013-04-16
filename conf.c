@@ -407,7 +407,7 @@ char *key_subst(struct state *state, char *key_line, char* buildstr)
         if(keys[key_ind].key_type == KEY_TYPE_STATIC || state->debug.parse_ini_test) {
                 newstr = process_single_key(state, key_line, key_ind);
 #ifdef DEBUG
-                printf("Processed single key: %s, key: %s, remaining: %d\n",
+                printf("Processed single key: %s, key: %s, remaining: %zu\n",
                        newstr, keyval, strlen(newkey_line));
 #endif /* DEBUG */
                 if(newstr != NULL) {
@@ -720,7 +720,6 @@ int parse_ini(char *filename, struct state *state)
          * Process any static substitution keys */
         if(subst_line_cnt > 0) {
                 int i;
-                char *subst_line;
                 char *key_line;
                 char buildstr[MAX_SUBST_LINE];
                 int key_count = 0;
@@ -730,7 +729,7 @@ int parse_ini(char *filename, struct state *state)
                         buildstr[0] = '\0';
 
                         key_line = *subst_str[i];
-                        subst_line = *subst_str[i];
+
                         while(key_line != NULL && (strlen(key_line) > 0)) {
 #ifdef DEBUG
                                 printf("parse key in: %s\n", key_line);
