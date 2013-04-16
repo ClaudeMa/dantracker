@@ -16,6 +16,7 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
@@ -593,7 +594,7 @@ int canned_packets(struct state *state)
         while(bytes_read > 0) {
                 if ((bytes_read = fread(&recpkt, sizeof(recpkt_t), 1, fsrecpkt)) != 1) {
                         if(bytes_read == 0) {
-                                printf("Finished reading all %d packets, %d bytes\n",
+                                printf("Finished reading all %d packets, %zu bytes\n",
                                        cnt_pkts, cnt_bytes + cnt_pkts*sizeof(recpkt_t));
                                 break;
                         }

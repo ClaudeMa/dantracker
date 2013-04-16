@@ -86,10 +86,10 @@ aprs-ax25: aprs-ax25.c conf.o util.o util.h aprs-is.h aprs-ax25.h aprs.h ax25dum
 	$(CC) $(CFLAGS) -DMAIN  $< -o $@ conf.o util.o ax25dump.o crc.o -lm $(LIBS)
 
 fakegps: fakegps.c
-	$(CC) $(CFLAGS) -lm -o $@ $< -lm
+	$(CC) $(CFLAGS) -o $@ $< -lm
 
 faptest: faptest.c
-	$(CC) $(CFLAGS) -lm -o $@ $< -lm $(LIBS)
+	$(CC) $(CFLAGS) -o $@ $< -lm $(LIBS)
 
 images:
 	$(MAKE) -C images
@@ -111,4 +111,3 @@ install:
 	rsync -a --cvs-exclude --include "*.js" --include "*.html" --exclude "*" webapp/ /usr/share/dantracker/
 	cp aprs /usr/local/bin
 	cp aprs-ax25 /usr/local/bin
-
