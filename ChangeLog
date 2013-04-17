@@ -1,3 +1,8 @@
+Wed Apr 17 16:05:59 PDT 2013  Basil Gunn <basil@pacabunga.com>
+
+    * Add install instructions for web app
+      File modified: README
+
 Tue Apr 16 12:42:42 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
     * Fix more compiler warnings found with OpenSuSE 12.3 64 bit.

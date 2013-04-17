@@ -57,6 +57,15 @@ WEBAPP: Only used by web app, see Makefile
     make
     make install
 
+  javascript libraries
+    jquery-1.8.3.min.js
+
+  node modules
+    ctype
+    iniparser
+    websocket
+    connect
+
 Tools required:
   build-essential (includes libc-dev, make, gcc, ... etc)
   pkg-config
@@ -85,14 +94,107 @@ cd libfap-1.3
 patch -p2 < ./<path_to_tracker_src>/fap_patch.n7nix
 
 
+====== For dantracker n7nix ONLY =========
+
+======== Web app install notes ========
+
+Once core apps, aprs for tracker & aprs-ax25 for spy are built need to
+do the following:
+
+check that this package is installed:
+screen
+
+Install node.js & npm (package manager for node)
+Install node.js modules globally:
+npm -g install <module name>
+npm list -g
+
+    ctype
+    iniparser
+    websocket
+    connect
+
+As root run install.sh found in tracker dir.  This will copy binary,
+java script & config files to appropriate directories.
+
+Confirm javascript library jquery-1.8.3.min.js exists here:
+/usr/share/dantracker/
+
+Edit config files /etc/tracker/aprs_tracker.ini & /etc/tracker/aprs_spy.ini
+
+change [station] mycall
+
+If you don't have a gps connected change [gps] type from nmea to static
+If gps is connected set serial port and set type to nmea
+
+Also change config for [ax25] port = xxx
+This should be the same port name used in /etc/ax25/axports
+
+As root run /etc/tracker/tracker-up
+
+As root run screen -ls
+
+should see something similar to:
+
+There are screens on:
+	30680.Tracker	(04/15/2013 06:10:32 PM)	(Detached)
+	21348.Spy	(04/15/2013 01:00:42 PM)	(Detached)
+2 Sockets in /var/run/screen/S-root.
+
+Attach to a terminal by:
+
+screen -r Spy
+
+or
+
+screen -r Tracker
+
+
+If you are successful in getting these screen sessions running & you
+are attached use these 'screen' commands:
+
+list windows:
+ctrl a w
+
+change windows
+ctrl a 0
+ctrl a 1
+ctrl a 2
+
+leave session by detaching:
+ctrl a d
+
+kill them:
+ctrl a \
+
+Open up your browser
+Is your browser web socket enabled?
+http://caniuse.com/websockets
+
+web url for tracker
+
+<your_machine_name>:8080/tracker.html
+or
+localhost:8080/tracker.html
+
+web url for spy
+
+<your_machine_name>:8081/spy.html
+or
+localhost:8081/spy.html
+
+
+
+====== For dantracker kk7ds ONLY =========
+
 Configuration
 ==================
 Copy one of the ini files from examples directory to same directory
 as aprs executable and rename to aprs.ini
 
 
-Running dantracker
-==================
+Running dantracker kk7dds edition
+=================================
 Stress-test by using examples/aprstest.ini (modified as appropriate), which
 will attempt to eat the entire APRS-IS world feed without crashing.
 
