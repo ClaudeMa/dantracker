@@ -183,7 +183,23 @@ web url for spy
 or
 localhost:8081/spy.html
 
+The install script does not setup apps to start on a power up or
+reboot.  To have the spy & tracker apps startup at boot time do the
+following. As root copy tracker startup script to the init.d dir then
+use udpate-rc.d to add the daemon.
 
+su
+cd /etc/tracker
+cp tracker /etc/init.d/
+
+Add a daemon with sequence of 95
+
+update-rc.d tracker defaults 95
+
+The daemon script supports start, stop, restart & status
+For example as root:
+
+/etc/init.d/tracker status
 
 ====== For dantracker kk7ds ONLY =========
 
