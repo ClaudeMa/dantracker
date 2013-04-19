@@ -141,7 +141,8 @@ There are screens on:
 	21348.Spy	(04/15/2013 01:00:42 PM)	(Detached)
 2 Sockets in /var/run/screen/S-root.
 
-Attach to a terminal by:
+Attach to a screen terminal
+---------------------------
 
 screen -r Spy
 
@@ -200,6 +201,21 @@ The daemon script supports start, stop, restart & status
 For example as root:
 
 /etc/init.d/tracker status
+
+
+Starting tracker or spy from command line without using script
+--------------------------------------------------------------
+Make sure tracker or spy is not already running
+
+screen -ls
+
+screen -S Tracker -c /etc/tracker/.screenrc.trk
+
+or
+
+screen -S Spy -c /etc/tracker/.screenrc.spy
+
+
 
 ====== For dantracker kk7ds ONLY =========
 

@@ -1,3 +1,17 @@
+Fri Apr 19 16:46:15 PDT 2013  Basil Gunn <basil@pacabunga.com>
+
+    * Fix metric units not formatted for stored packets
+      File modifed: aprs.c
+
+    * Add locale: metric to ini parsing.
+      Files modifed:
+        aprs.h
+        conf.c
+        examples/aprs_tracker.ini
+
+    * Add notes on starting tracker from command line with script
+      File modified: README
+
 Thu Apr 18 10:43:17 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
     * Add install instructions to start apps at boot up.

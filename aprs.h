@@ -19,7 +19,7 @@
 #define MAX_APRS_MSG_LEN (67)
 #define MAX_CALLSIGN  9
 #define MAX_MSGID     5
-#define KEEP_MESSAGES 8
+#define KEEP_MESSAGES 8 /* needs to be a power of 2 */
 #define MAX_KEY_LEN 16
 #define MAX_SUBST_LINE 1024
 
@@ -147,7 +147,7 @@ struct state {
                 unsigned int ui_inet_port;
 
                 unsigned int aprsis_range;
-                int metric_units;
+                bool metric_units;
                 bool aprs_message_ack;
                 dictionary *ini_dict;
 

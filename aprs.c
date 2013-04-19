@@ -791,29 +791,23 @@ void display_packet(struct state *state, fap_packet_t *fap)
         }
 }
 
-int stored_packet_desc(fap_packet_t *fap, int index,
+int stored_packet_desc(struct state *state, fap_packet_t *fap, int index,
                        double mylat, double mylon,
                        char *buf, int len)
 {
         if (fap->latitude && fap->longitude) {
-                const char *dirstr;
-
-                dirstr = direction(get_direction(mylon, mylat,
+                const char *dirstr = direction(get_direction(mylon, mylat,
                         *fap->longitude,
                         *fap->latitude));
-                if(dirstr == NULL) {
-                        printf("  Will segfault, pkt=%s\n", fap->orig_packet);
-                        fflush(stdout);
-                }
 
-                buf[0]='\0';
                 snprintf(buf, len,
-                         "%i:%-9s <small>%3.0fmi %-2s</small>",
+                         "%i:%-9s <small>%s %-2s</indexsmall>",
                          index, OBJNAME(fap),
-                         KPH_TO_MPH(fap_distance(mylon, mylat,
-                                        *fap->longitude,
-                                        *fap->latitude)),
-                         dirstr);
+                         format_distance(state, "%3.0f%s",
+                                         fap_distance(mylon, mylat,
+                                         *fap->longitude,
+                                         *fap->latitude)),
+                                         dirstr);
         } else if (fap->src_callsign != NULL) {
                 snprintf(buf, len,
                          "%i:%-9s <small>%s</small>",
@@ -839,7 +833,7 @@ int update_packets_ui(struct state *state)
 
                 sprintf(name, "AL_%02i", i-1);
                 if (p)
-                        stored_packet_desc(p, i,
+                        stored_packet_desc(state, p, i,
                                            mypos->lat, mypos->lon,
                                            buf, sizeof(buf));
                 else

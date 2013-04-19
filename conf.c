@@ -142,7 +142,7 @@ int parse_opts(int argc, char **argv, struct state *state)
                                         (unsigned int)strtoul(optarg, NULL, 10);
                                 break;
                         case 'm':
-                                state->conf.metric_units = 1;
+                                state->conf.metric_units = true;
                                 break;
                         case '?':
                                 printf("Unknown option\n");
@@ -517,7 +517,7 @@ int parse_ini(char *filename, struct state *state)
         state->debug.record_pkt_filename = iniparser_getstring(ini, "debug:record", NULL);
         state->debug.playback_pkt_filename = iniparser_getstring(ini, "debug:playback", NULL);
         state->debug.playback_time_scale = iniparser_getint(ini, "debug:playback_scale", 1);
-        tmp = iniparser_getstring(ini, "debug:parse_ini_test", "OFF");
+        tmp = strdup(iniparser_getstring(ini, "debug:parse_ini_test", "OFF"));
         strupper(tmp);
         state->debug.parse_ini_test = STREQ(tmp, "OFF") ? false : true;
 
@@ -544,7 +544,7 @@ int parse_ini(char *filename, struct state *state)
         state->conf.ax25_port = iniparser_getstring(ini, "ax25:port", "undefined");
 
         /* Get the AX25 device filter setting */
-        tmp = iniparser_getstring(ini, "ax25:device_filter", "OFF");
+        tmp = strdup(iniparser_getstring(ini, "ax25:device_filter", "OFF"));
         strupper(tmp);
         if(STREQ(tmp, "OFF")) {
                 state->conf.ax25_pkt_device_filter = AX25_PKT_DEVICE_FILTER_OFF;
@@ -682,6 +682,10 @@ int parse_ini(char *filename, struct state *state)
                 }
                 free(types);
         }
+
+        tmp = strdup(iniparser_getstring(ini, "locale:units", "imperial"));
+        strupper(tmp);
+        state->conf.metric_units = STREQ(tmp, "METRIC") ? true : false;
 
         tmp = iniparser_getstring(ini, "comments:enabled", "");
         if (strlen(tmp) != 0) {
