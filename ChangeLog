@@ -1,3 +1,25 @@
+Mon Apr 22 09:07:23 PDT 2013
+
+    * Fix problems with aprs-is running from console.
+      * aprs-is now reads config from ini file
+      * Add aprsis range and port number to ini file.
+    * When [tnc] type=net is used can now specify aprsis
+      server port number.
+    * When [locale] units is set to metric, ini file parameters
+      [static] alt & speed are treated as metric units.
+      Files modified:
+        Makefile
+        aprs-is.c
+        aprs.c
+        aprs.h
+        conf.c
+        examples/aprs_tracker.ini
+
+    * Add README changes for using apris-is
+    * Added minor changes in install section.
+    * Changed header delimiters to patch github mark down syntax.
+      File modified: README
+
 Fri Apr 19 16:46:15 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
     * Fix metric units not formatted for stored packets

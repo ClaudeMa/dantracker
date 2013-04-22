@@ -1,4 +1,9 @@
-/* Copyright 2012 Dan Smith <dsmith@danplanet.com> */
+/* -*- Mode: C; tab-width: 8;  indent-tabs-mode: nil; c-basic-offset: 8; c-brace-offset: -8; c-argdecl-indent: 8 -*- */
+
+/* dantracker aprs tracker
+ *
+ * Copyright 2012 Dan Smith <dsmith@danplanet.com>
+ */
 
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -12,6 +17,7 @@
 #include <netdb.h>
 #include <stdbool.h>
 
+#include "aprs.h"
 #include "aprs-is.h"
 
 static int aprsis_login(int fd, const char *call,
@@ -22,7 +28,9 @@ static int aprsis_login(int fd, const char *call,
 
 	len = asprintf(&buf, "user %s pass -1 vers Unknown 0.00 filter r/%.0f/%.0f/%.0f\r\n",
 		       call, lat, lon, range);
-	if (len < 0)
+        pr_debug("aprsis_login: %s\n", buf);
+
+        if (len < 0)
 		return -ENOMEM;
 
 	ret = write(fd, buf, len);
@@ -62,7 +70,8 @@ int aprsis_connect(const char *hostname, int port, const char *mycall,
 	if (ret < 0)
 		goto out;
 
-	printf("Connected\n");
+        printf("Connected to host: %s, on port: %d\n",
+               hostname, port);
 
  out:
 	if (ret) {
@@ -96,29 +105,40 @@ int get_packet_text(int fd, char *buffer, unsigned int *len)
 
 #ifdef MAIN
 
-#include "util.h"
-#include "aprs.h"
-
 int main(int argc, char **argv)
 {
 	int sock;
 	int ret;
 	char buf[256];
 	struct state state;
+        char *program_name;
+
+        if ( (program_name=strrchr(argv[0], '/'))!=NULL) {  /* Get root program name */
+                program_name++;
+        } else {
+                program_name = argv[0];
+        }
+        printf("%s v0.1.%04i (%s)\n", program_name, atoi(BUILD), REVISION);
 
 	memset(&state, 0, sizeof(state));
+        fap_init();
 
-	if (parse_ini(state.conf.config ? state.conf.config : "aprs.ini", &state)) {
-		printf("Invalid config\n");
-		exit(1);
-	}
+        if (parse_opts(argc, argv, &state)) {
+                printf("Invalid option(s)\n");
+                exit(1);
+        }
 
-	sock = aprsis_connect(state.conf.net_server_host_addr,
-			      APRS_PORT_FILTERED_FEED,
-			      state.mycall,
-			      MYPOS(&state)->lat,
-			      MYPOS(&state)->lon,
-			      state.conf.aprsis_range);
+        if (parse_ini(state.conf.config ? state.conf.config : "aprs.ini", &state)) {
+                printf("Invalid config\n");
+                exit(1);
+        }
+
+	sock = aprsis_connect(state.conf.aprsis_server_host_addr,
+			      state.conf.aprsis_server_port,
+                              state.basecall,
+                              state.conf.static_lat,
+                              state.conf.static_lon,
+                              state.conf.aprsis_range);
 
 	if (sock < 0) {
 		printf("Sock %i: %m\n", sock);

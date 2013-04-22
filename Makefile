@@ -61,7 +61,7 @@ aprs-ax25.o: aprs-ax25.c aprs-ax25.h aprs.h conf.c util.c aprs-is.h util.h Makef
 serial.o: serial.c serial.h
 nmea.o: nmea.c nmea.h
 util.o: util.c util.h
-conf.o: conf.c util.c util.h aprs.h
+conf.o: conf.c util.c util.h aprs.h aprs-is.h
 ax25dump.o: ax25dump.c crc.c util.c monixd.h util.h
 crc.o: crc.c
 faptest.o: faptest.c

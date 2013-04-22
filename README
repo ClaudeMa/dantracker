@@ -33,6 +33,7 @@ GTKAPP: Only used by gtk app, see Makefile
   libgtk2.0-dev
 
 AX25: Only used with AX25 stack
+  Build from source http://www.linux-ax25.org/wiki/CVS
   libax25-dev
 
 WEBAPP: Only used by web app, see Makefile
@@ -58,6 +59,13 @@ WEBAPP: Only used by web app, see Makefile
     make install
 
   javascript libraries
+    http://jquery.com/download/
+
+    At the time this README was written version 1.8.3 was currrent.
+    If a newer version is used change files:
+     webapp/spy.html & webapp/tracker.html
+     Past Release, version 1.8.3 may be downloaded from above URL.
+
     jquery-1.8.3.min.js
 
   node modules
@@ -77,13 +85,13 @@ Tools required:
 
 
 Basic Installation
-==================
+------------------
 
 `cd' to the directory containing the source code and type
 `make' to compile, link & create png image files.
 
 fap Installation
-================
+----------------
 
 Before building the fap library run the fap patch in the tracker
 repository against its source tree. You need to supply the directory
@@ -94,9 +102,11 @@ cd libfap-1.3
 patch -p2 < ./<path_to_tracker_src>/fap_patch.n7nix
 
 
-====== For dantracker n7nix ONLY =========
+For dantracker n7nix ONLY
+=========================
 
-======== Web app install notes ========
+Web app install notes
+=====================
 
 Once core apps, aprs for tracker & aprs-ax25 for spy are built need to
 do the following:
@@ -115,7 +125,7 @@ npm list -g
     connect
 
 As root run install.sh found in tracker dir.  This will copy binary,
-java script & config files to appropriate directories.
+javascript & config files to appropriate directories.
 
 Confirm javascript library jquery-1.8.3.min.js exists here:
 /usr/share/dantracker/
@@ -127,7 +137,7 @@ change [station] mycall
 If you don't have a gps connected change [gps] type from nmea to static
 If gps is connected set serial port and set type to nmea
 
-Also change config for [ax25] port = xxx
+For AX.25 operation change config for [ax25] port = xxx
 This should be the same port name used in /etc/ax25/axports
 
 As root run /etc/tracker/tracker-up
@@ -216,11 +226,52 @@ or
 screen -S Spy -c /etc/tracker/.screenrc.spy
 
 
+Console Programs
+================
 
-====== For dantracker kk7ds ONLY =========
+Stand alone programs displaying to console only.
+
+./aprs-is
+---------
+
+./aprs-is -c <path_to_ini_config_file>/aprs.ini
+
+Display packets from an APRS server.
+Need to specify in ini file:
+[net] server_host_address, server_port and range
+[static] lat and long
+[gps] type=static
+
+
+./aprs-ax25
+-----------
+
+./aprs-ax25 -c <path_to_ini_config_file>/aprs.ini
+
+Display packets from AX.25 stack
+Need to edit compile time define aprs-ax25.c and remove #define
+PKT_SOCK_ENABLE.
+
+
+./fakegps
+---------
+
+Continuously display gps GGA & RMC sentences that will be used if
+[gps]:type=static is configured.
+
+
+./faptest < file_containing_aprs_packet
+---------------------------------------
+
+Reads a packet from stdin and passes to fap library.
+
+
+
+For dantracker kk7ds ONLY
+=========================
 
 Configuration
-==================
+=============
 Copy one of the ini files from examples directory to same directory
 as aprs executable and rename to aprs.ini
 

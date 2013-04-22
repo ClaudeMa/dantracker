@@ -17,6 +17,7 @@
 #include <stdbool.h>
 
 #include "aprs.h"
+#include "aprs-is.h"
 #include "ui.h"
 #include "util.h"
 
@@ -537,8 +538,17 @@ int parse_ini(char *filename, struct state *state)
         /* Build the TIER 2 host name */
         tmp = iniparser_getstring(ini, "net:server_host_address", "oregon");
 
-        state->conf.net_server_host_addr = calloc(sizeof(tmp)+ 1 + sizeof(TIER2_HOST_NAME) + 1, sizeof(char));
-        sprintf(state->conf.net_server_host_addr,"%s%s", tmp, TIER2_HOST_NAME);
+        state->conf.aprsis_server_host_addr = calloc(sizeof(tmp)+ 1 + sizeof(TIER2_HOST_NAME) + 1, sizeof(char));
+        sprintf(state->conf.aprsis_server_host_addr,"%s%s", tmp, TIER2_HOST_NAME);
+
+        /* Get APRS server port */
+        state->conf.aprsis_server_port = iniparser_getint(ini, "net:server_port", APRS_PORT_FILTERED_FEED);
+
+        /* set range to use for APRS net_server_host_address:net_server_port
+         *  - for [TNC] type=net to suck packets from the aprs-is
+         *  server specified above.
+         */
+        state->conf.aprsis_range = iniparser_getint(ini, "net:range", 100);
 
         /* Get the AX25 port name */
         state->conf.ax25_port = iniparser_getstring(ini, "ax25:port", "undefined");
@@ -735,13 +745,13 @@ int parse_ini(char *filename, struct state *state)
                         key_line = *subst_str[i];
 
                         while(key_line != NULL && (strlen(key_line) > 0)) {
-#ifdef DEBUG
+#ifdef DEBUG_VERBOSE
                                 printf("parse key in: %s\n", key_line);
 #endif /* DEBUG */
                                 key_line = key_subst(state, key_line, buildstr);
                                 if(key_line != NULL) {
                                         key_count++;
-#if DEBUG
+#if DEBUG_VERBOSE
                                         printf("Building string: count %d, remaining str: %s\n",
                                                key_count, key_line);
 #endif /* DEBUG */

@@ -1988,9 +1988,11 @@ int fake_gps_data(struct state *state)
 
         mypos->lat = state->conf.static_lat;
         mypos->lon = state->conf.static_lon;
-        mypos->alt = state->conf.static_alt;
-        mypos->speed = state->conf.static_spd;
         mypos->course = state->conf.static_crs;
+        /* If ini parameter locale:units = metric
+         * assume static variables are given in metric */
+        mypos->alt = M_TO_FT(state->conf.static_alt);
+        mypos->speed = KPH_TO_MPH(state->conf.static_spd);
 
         mypos->qual = 1;
         mypos->sats = 0; /* We may claim qual=1, but no sats */
@@ -2211,8 +2213,8 @@ int main(int argc, char **argv)
                         exit(1);
                 }
         } else if (STREQ(state.conf.tnc_type, "NET")) {
-                pr_debug("tnc type is NET try aprsis_connect to %s\n", state.conf.net_server_host_addr);
-                state.tncfd = aprsis_connect(state.conf.net_server_host_addr, APRS_PORT_FILTERED_FEED,
+                state.tncfd = aprsis_connect(state.conf.aprsis_server_host_addr,
+                                             state.conf.aprsis_server_port,
                                              state.mycall,
                                              MYPOS(&state)->lat,
                                              MYPOS(&state)->lon,

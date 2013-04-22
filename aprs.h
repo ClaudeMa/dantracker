@@ -102,7 +102,11 @@ struct state {
 
                 char *tnc_type;
                 char *gps_type;
-                char *net_server_host_addr;
+
+                char *aprsis_server_host_addr;
+                int aprsis_server_port;
+                unsigned int aprsis_range;
+
                 int ax25_pkt_device_filter;
                 char *ax25_port;
                 char *aprs_path;
@@ -146,7 +150,6 @@ struct state {
                 char *ui_host_name;
                 unsigned int ui_inet_port;
 
-                unsigned int aprsis_range;
                 bool metric_units;
                 bool aprs_message_ack;
                 dictionary *ini_dict;
@@ -239,6 +242,7 @@ int _ui_send(struct state *state, const char *name, const char *value);
 int store_packet(struct state *state, fap_packet_t *fap);
 fap_packet_t *dan_parseaprs(char *string, int len, int isax25);
 void display_fap_error(char *string, struct state *state, fap_packet_t *fap);
+int fake_gps_data(struct state *state);
 
 bool send_kiss_beacon(int fd, char *packet);
 bool send_net_beacon(int fd, char *packet);
