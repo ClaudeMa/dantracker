@@ -106,6 +106,7 @@ struct state {
                 char *aprsis_server_host_addr;
                 int aprsis_server_port;
                 unsigned int aprsis_range;
+                char *aprsis_filter;
 
                 int ax25_pkt_device_filter;
                 char *ax25_port;
@@ -246,6 +247,7 @@ int fake_gps_data(struct state *state);
 
 bool send_kiss_beacon(int fd, char *packet);
 bool send_net_beacon(int fd, char *packet);
+bool send_beacon(struct state *state, char *packet);
 
 /* Debug only */
 void fap_free_wrapper(char *dispStr,  struct state *state, fap_packet_t *fap);

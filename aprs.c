@@ -598,9 +598,9 @@ void display_phg(struct state *state, fap_packet_t *fap)
                 return;
         }
 
-        asprintf(&buf, "Power %iW at %.0fft (%idB gain @ %s)",
+        asprintf(&buf, "Power %iW at %s (%idB gain @ %s)",
                  power*power,
-                 pow(2, height - '0') * 10,
+                 format_altitude_agl(state, "%.0f%s", pow(2, height - '0') * 10),
                  gain,
                  dir ? direction(dir) : "omni");
         _ui_send(state, "AI_COMMENT", buf);
@@ -619,14 +619,14 @@ void display_posit(struct state *state, fap_packet_t *fap, bool isnew)
         char buf[512];
 
         if (fap->speed && fap->course && (*fap->speed > 0.0) && fap->altitude) {
-                snprintf(buf, sizeof(buf), "%.0f MPH %2s @ %i FT",
-                         KPH_TO_MPH(*fap->speed),
+                snprintf(buf, sizeof(buf), "%s %2s @ %s",
+                         format_speed(state, "%.0f %s", *fap->speed),
                          direction(*fap->course),
-                         (int)M_TO_FT(*fap->altitude));
+                         format_altitude(state, "%.0f %s", *fap->altitude));
                 _ui_send(state, "AI_COURSE", buf);
         } else if (fap->speed && fap->course && (*fap->speed > 0.0)) {
-                snprintf(buf, sizeof(buf), "%.0f MPH %2s",
-                         KPH_TO_MPH(*fap->speed),
+                snprintf(buf, sizeof(buf), "%s %2s",
+                         format_speed(state, "%.0f %s", *fap->speed),
                          direction(*fap->course));
                 _ui_send(state, "AI_COURSE", buf);
         } else if (isnew)
@@ -1426,9 +1426,8 @@ int handle_display(struct state *state)
         struct ui_msg *msg = NULL;
         const char *name;
         int ret;
-        int sock = state->dspfd;
 
-        ret = ui_get_msg(sock, &msg);
+        ret = ui_get_msg(state, &msg);
 
         if ((ret <= 0) || msg == NULL) {
                 if(ret <= 0) {
@@ -2216,9 +2215,16 @@ int main(int argc, char **argv)
                 state.tncfd = aprsis_connect(state.conf.aprsis_server_host_addr,
                                              state.conf.aprsis_server_port,
                                              state.mycall,
-                                             MYPOS(&state)->lat,
-                                             MYPOS(&state)->lon,
-                                             state.conf.aprsis_range);
+                                             state.conf.aprsis_filter);
+                if (state.tncfd < 0) {
+                        printf("Sock %i: %m\n", state.tncfd);
+                        printf("Failed to connect with host: %s, port: %d, call: %s, filter: %s\n",
+                               state.conf.aprsis_server_host_addr,
+                               state.conf.aprsis_server_port,
+                               state.basecall,
+                               state.conf.aprsis_filter);
+                        exit(1);
+                }
         } else if (STREQ(state.conf.tnc_type, "AX25")) {
 #ifdef HAVE_AX25_TRUE
                 state.tncfd = aprsax25_connect(&state);

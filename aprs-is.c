@@ -20,14 +20,13 @@
 #include "aprs.h"
 #include "aprs-is.h"
 
-static int aprsis_login(int fd, const char *call,
-			double lat, double lon, double range)
+static int aprsis_login(int fd, const char *call, char *filter)
 {
 	char *buf;
 	int ret, len;
 
-	len = asprintf(&buf, "user %s pass -1 vers Unknown 0.00 filter r/%.0f/%.0f/%.0f\r\n",
-		       call, lat, lon, range);
+	len = asprintf(&buf, "user %s pass -1 vers Unknown 0.00 filter %s\r\n",
+		       call, filter);
         pr_debug("aprsis_login: %s\n", buf);
 
         if (len < 0)
@@ -42,8 +41,7 @@ static int aprsis_login(int fd, const char *call,
 		return 0;
 }
 
-int aprsis_connect(const char *hostname, int port, const char *mycall,
-		   double lat, double lon, double range)
+int aprsis_connect(const char *hostname, int port, const char *mycall, char *filter)
 {
 	int sock;
 	struct sockaddr_in sa;
@@ -66,7 +64,7 @@ int aprsis_connect(const char *hostname, int port, const char *mycall,
 	if (ret < 0)
 		goto out;
 
-	ret = aprsis_login(sock, mycall, lat, lon, range);
+	ret = aprsis_login(sock, mycall, filter);
 	if (ret < 0)
 		goto out;
 
@@ -136,12 +134,15 @@ int main(int argc, char **argv)
 	sock = aprsis_connect(state.conf.aprsis_server_host_addr,
 			      state.conf.aprsis_server_port,
                               state.basecall,
-                              state.conf.static_lat,
-                              state.conf.static_lon,
-                              state.conf.aprsis_range);
+                              state.conf.aprsis_filter);
 
 	if (sock < 0) {
 		printf("Sock %i: %m\n", sock);
+                printf("Failed to connect with host: %s, port: %d, call: %s, filter: %s\n",
+                       state.conf.aprsis_server_host_addr,
+                       state.conf.aprsis_server_port,
+                       state.basecall,
+                       state.conf.aprsis_filter);
 		return 1;
 	}
 

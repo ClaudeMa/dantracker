@@ -1,4 +1,16 @@
-Mon Apr 22 09:07:23 PDT 2013
+Fri Apr 26 12:23:24 PDT 2013   Basil Gunn <basil@pacabunga.com>
+
+    * Add ability to set APRS-IS server filter in ini file.
+      Files modified:
+        aprs-is.c
+        aprs-is.h
+        conf.c
+        Makefile
+        aprs.c
+        aprs.h
+        examples/aprs_tracker.ini
+
+Mon Apr 22 09:07:23 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
     * Fix problems with aprs-is running from console.
       * aprs-is now reads config from ini file

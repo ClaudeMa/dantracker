@@ -549,6 +549,7 @@ int parse_ini(char *filename, struct state *state)
          *  server specified above.
          */
         state->conf.aprsis_range = iniparser_getint(ini, "net:range", 100);
+        state->conf.aprsis_filter = iniparser_getstring(ini, "net:server_filter", NULL);
 
         /* Get the AX25 port name */
         state->conf.ax25_port = iniparser_getstring(ini, "ax25:port", "undefined");
@@ -729,6 +730,29 @@ int parse_ini(char *filename, struct state *state)
                 fprintf(stderr, "ERROR: Please config ini file with your call sign\n");
                 return -1;
         }
+
+        /*
+         * APRS-IS server filter can be built in one of two ways:
+         *  - from the static config  used when no GPS is attached
+         *    [static]
+         *  - from filter string [net] server_filter =
+         * If a filter string under [net] config is defined that takes
+         * precedence.
+         */
+        if(state->conf.aprsis_filter == NULL) {
+                /* build the aprs-is filter
+                 * The GPS may not be be active yet so always take the static
+                 * lat, lon
+                 * Range filter r/lat/lon/dist
+                 */
+
+                asprintf(&state->conf.aprsis_filter, "r/%.3f/%.3f/%.1f",
+                         state->conf.static_lat,
+                         state->conf.static_lon,
+                         (double)state->conf.aprsis_range);
+        }
+
+        printf("Debug: aprsis filter string: %s\n", state->conf.aprsis_filter);
 
         /* Any substitution keys found?
          * Process any static substitution keys */
