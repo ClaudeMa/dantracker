@@ -22,6 +22,7 @@
 #define KEEP_MESSAGES 8 /* needs to be a power of 2 */
 #define MAX_KEY_LEN 16
 #define MAX_SUBST_LINE 1024
+#define MAX_OUTSTANDING_MSGS 8  /* needs to be a power of 2 */
 
 #define KEEP_PACKETS 8
 #define KEEP_POSITS  4
@@ -68,15 +69,26 @@ typedef struct key_subst {
 
 extern key_subst_t keys[];
 
-/* APRS message */
+/* APRS received message */
 typedef struct aprsmsg {
         bool acked;
-        char *message_id;
         time_t timestamp;
+        char *message_id;
         char srccall[MAX_CALLSIGN+1];
         char dstcall[MAX_CALLSIGN+1];
         char *message;
 } aprsmsg_t;
+
+/*
+ * Keep track of outstanding ack requests for sent messages
+ */
+typedef struct ack_outstanding {
+        bool needs_ack;
+        time_t timestamp;
+        int ack_msgid;
+        int ack_retry_count;
+        char *aprs_msg;
+} ack_outstand_t;
 
 /* AX.25 Packet Device Filter */
 typedef enum {
@@ -186,6 +198,9 @@ struct state {
 
         aprsmsg_t *msghist[KEEP_MESSAGES];
         int msghist_idx;
+
+        ack_outstand_t ackout[MAX_OUTSTANDING_MSGS];
+        int ack_msgid;
 
         fap_packet_t *last_packet; /* In case we don't store it below */
         fap_packet_t *recent[KEEP_PACKETS];

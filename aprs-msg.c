@@ -16,6 +16,7 @@
 #include "aprs-ax25.h"
 #include "aprs-msg.h"
 
+
 #ifdef  WEBAPP
 char *format_msgtime(time_t *timestamp)
 {
@@ -43,7 +44,7 @@ bool isnewmessage(struct state *state, fap_packet_t *fap)
         int i;
 
         /*
-         * Handle an ack
+         * Check for an ack
          */
         if(fap->message_ack != NULL) {
                 return(false);
@@ -86,7 +87,6 @@ void save_message(struct state *state, fap_packet_t *fap)
         char basecall[MAX_CALLSIGN];
         int ssid;
         aprsmsg_t *aprsmsg;
-        char aprs_ack[24]; /* largest APRS Message Ack is 19 bytes */
 
         assert(msgind < KEEP_MESSAGES && msgind >= 0);
 
@@ -138,17 +138,6 @@ void save_message(struct state *state, fap_packet_t *fap)
                 strncpy(aprsmsg->message_id, fap->message_id, MAX_MSGID);
                 get_base_callsign(basecall, &ssid, aprsmsg->dstcall);
                 printf("callsign check: %s %s\n", basecall, aprsmsg->dstcall);
-                if(STREQ(basecall, state->basecall)) {
-                        /* send an ack */
-                        pr_debug("SEND an ack to %s\n", fap->src_callsign);
-                        sprintf(aprs_ack,":%-9s:ack%s",
-                                  aprsmsg->dstcall,
-                                  aprsmsg->message_id);
-
-                        send_message(state, aprs_ack);
-                }
-        } else {
-                aprsmsg->message_id = NULL;
         }
 
         printf("save_message index: %d, from: %s, to: %s, ack: %s, id: %s, Msg: %s\n",
@@ -158,10 +147,8 @@ void save_message(struct state *state, fap_packet_t *fap)
                (fap->message_id == NULL) ? "None" : fap->message_id,
                fap->message);
 
-
-        state->msghist_idx = (state->msghist_idx == KEEP_MESSAGES - 1) ? 0 : ++msgind;
-        assert(state->msghist_idx < KEEP_MESSAGES && state->msghist_idx >= 0);
-
+        msgind++;
+        state->msghist_idx = msgind & (KEEP_MESSAGES - 1);
 }
 
 void webdisplay_message(struct state *state, fap_packet_t *fap)
@@ -217,10 +204,58 @@ bool isEncap(fap_packet_t *fap, char **encap) {
 
 void handle_aprsMessages(struct state *state, fap_packet_t *fap, char *packet) {
 
-        printf("\n%s Msg [%lu]: type: 0x%02x -> %s\n",
-               time2str(fap->timestamp, 0),
-               state->stats.inPktCount,
-               *fap->type, packet);
+        int ack_ind;
+
+        if(fap->destination != NULL) {
+                printf("\n%s Msg [%lu]: type: 0x%02x, dest: %s -> %s\n",
+                       time2str(fap->timestamp, 0),
+                       state->stats.inPktCount,
+                       *fap->type,
+                       fap->destination,
+                       packet);
+        }
+        /*
+         * Qualify packet destination address
+         */
+        if((fap->destination != NULL) &&
+           STRNEQ(fap->destination,
+                  state->mycall,
+                  strlen(state->mycall))) {
+                /*
+                 * Qualify message as an ACK
+                 */
+                if(fap->message_ack != NULL) {
+                        ack_ind = atoi(fap->message_ack) & (MAX_OUTSTANDING_MSGS - 1);
+                        /* mark message as acked & stop retrys */
+                        pr_debug("Receiving aprs ack: %s, index %d %d\n",
+                                 fap->message_ack, ack_ind, state->ackout[ack_ind].ack_msgid);
+
+                        /* Qualify ack state & turn off
+                         * "waiting for ack"
+                         */
+                        if ( state->ackout[ack_ind].ack_msgid == ack_ind) {
+                                if(!state->ackout[ack_ind].needs_ack) {
+                                        pr_debug("aprs msg already acked: %s, index %d %d\n",
+                                                fap->message_ack, ack_ind, state->ackout[ack_ind].ack_msgid);
+                                } else {
+                                        state->ackout[ack_ind].needs_ack = false;
+                                        if(state->ackout[ack_ind].aprs_msg != NULL) {
+                                                free(state->ackout[ack_ind].aprs_msg);
+                                        }
+                                        state->ackout[ack_ind].aprs_msg = NULL;
+                                }
+                        }
+                }
+                /*
+                 * Qualify messsage requiring an ACK
+                 */
+                if(fap->message_id != NULL) {
+                        /* Send an ACK */
+                        pr_debug("Receiving aprs message from %s requiring an ack: %s\n",
+                                 fap->src_callsign, fap->message_id);
+                        send_msg_ack(state, fap);
+                }
+        }
 }
 
 void handle_thirdparty(struct state *state, fap_packet_t *fap) {
@@ -334,28 +369,59 @@ void webdisplay_unhandled(struct state *state, fap_packet_t *fap)
 }
 
 /*
+ * Respond to an ack message request
+ */
+void send_msg_ack(struct state *state, fap_packet_t *fap)
+{
+        char aprs_ack[24]; /* largest APRS Message Ack is 19 bytes */
+
+        sprintf(aprs_ack,":%-9s:ack%s",
+                  fap->destination,
+                  fap->message_id);
+
+        pr_debug("Sending aprs ack: %s\n", aprs_ack);
+        send_beacon(state, aprs_ack);
+}
+
+/*
  * Send APRS message packet out one of the interfaces:
  * serial, ax.25 or network stack
  */
-int send_message(struct state *state, char *msg)
+void send_message(struct state *state, char *to_str, char *msg_str, char **build_msg)
 {
+        char *aprs_msg;
+        int ack_ind;
 
-        if (STREQ(state->conf.tnc_type, "KISS")) {
-                _ui_send(state, "I_TX", "1000");
-                return send_kiss_beacon(state->tncfd, msg);
-        } else if (STREQ(state->conf.tnc_type, "AX25")) {
-#ifdef HAVE_AX25_TRUE
-                _ui_send(state, "I_TX", "1000");
-                return send_ax25_beacon(state, msg);
-#else
-                printf("%s:%s(): tnc type has been configured to use AX.25 but AX.25 lib has not been installed.\n",
-                       __FILE__, __FUNCTION__);
-                return 0;
-#endif /* #ifdef HAVE_AX25_TRUE */
+        if(state->conf.aprs_message_ack) {
+                state->ack_msgid++; /* Bump APRS message number */
+                /* Get index of outstanding messages */
+                ack_ind = state->ack_msgid & (MAX_OUTSTANDING_MSGS - 1);
+
+                /* initialize message ack state */
+                state->ackout[ack_ind].ack_msgid = state->ack_msgid;
+                state->ackout[ack_ind].needs_ack = true;
+
+
+                /* create an APRS message with a ack request
+                 * reference page 71 APRS protocol 1.0.1 */
+
+                asprintf(&aprs_msg,":%-9s:%s{%02d",
+                         to_str,
+                         msg_str,
+                         state->ack_msgid);
+
+                /* save pointer to message in case a retry is required */
+                state->ackout[ack_ind].aprs_msg = aprs_msg;
+                state->ackout[ack_ind].timestamp = time(NULL);
 
         } else {
-                return send_net_beacon(state->tncfd, msg);
+                asprintf(&aprs_msg,":%-9s:%s",
+                         to_str,
+                         msg_str);
         }
+        printf("aprs msg: %s\n", aprs_msg);
+        send_beacon(state, aprs_msg);
+        *build_msg = aprs_msg;
 }
 
 /*
@@ -386,6 +452,6 @@ void display_fap_message(struct state *state, fap_packet_t *fap)
         }
         printf("\n");
         fflush(stdout);
-}\
+}
 
 #endif /* WEBAPP */

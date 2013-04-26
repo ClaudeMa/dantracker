@@ -1457,7 +1457,7 @@ int handle_display(struct state *state)
         } else if (STREQ(name, UI_MSG_NAME_KISS)) {
                 handle_display_initkiss(state);
         } else if (STREQ(name, UI_MSG_NAME_SEND)) {
-                send_message(state, ui_get_msg_valu(msg));
+/*                send_beacon(state, ui_get_msg_valu(msg)); */
         } else if (STREQ(name, UI_MSG_NAME_SETCFG)) {
                 /* Set any config coming back from web app */
         } else if (STREQ(name, UI_MSG_NAME_GETCFG)) {

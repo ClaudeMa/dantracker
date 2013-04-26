@@ -16,11 +16,8 @@
 #include "aprs.h"
 #include "ui.h"
 #include "util.h"
+#include "aprs-msg.h"
 
-
-/* Used to ACK APRS messages */
-int mesg_id = 0;
-int glaprs_message_ack = false;
 
 int ui_sock_cfg(struct state *state)
 {
@@ -157,13 +154,15 @@ int ui_send(int sock, const char *name, const char *value)
 
 #define RBUFSIZE 1024
 
-int ui_get_json_msg(int sock, struct ui_msg **msg, struct ui_msg *hdr)
+int ui_get_json_msg(struct state *state, struct ui_msg **msg, struct ui_msg *hdr)
 {
 	char *buf = (char *)hdr;
 	char json_str[RBUFSIZE];
 	char aprs_msg[128]; /* largest legal APRS Message is 84 bytes */
-	int json_len;
+        char *aprs_msg_ptr;
+        int json_len;
 	int ret;
+        int sock = state->dspfd;
 
 	memset(json_str, 0, RBUFSIZE);
 
@@ -207,7 +206,7 @@ int ui_get_json_msg(int sock, struct ui_msg **msg, struct ui_msg *hdr)
 #endif /*  DEBUG_VERBOSE */
 			to_str = (char *)json_object_get_string(to_obj);
 			/* qualify APRS addressee string */
-			strupper(to_str); /* APRS requies upper case call signs */
+			strupper(to_str); /* APRS requires upper case call signs */
 			if(strlen(to_str) > MAX_CALLSIGN ) {
 				*(to_str + MAX_CALLSIGN)='\0';
 			}
@@ -218,22 +217,12 @@ int ui_get_json_msg(int sock, struct ui_msg **msg, struct ui_msg *hdr)
 				*(msg_str + MAX_APRS_MSG_LEN)='\0';
 			}
 
-			mesg_id++; /* Bump APRS message number */
-			/* create a ui_msg from json,
-			 * reference page 71 APRS protocol 1.0.1 */
-			if(glaprs_message_ack) {
-				sprintf(aprs_msg,":%-9s:%s{%02d",
-					  to_str,
-					  msg_str,
-					  mesg_id);
-			} else {
-				sprintf(aprs_msg,":%-9s:%s",
-					  to_str,
-					  msg_str);
-			}
-			printf("aprs msg: %s\n", aprs_msg);
+                        send_message(state, to_str, msg_str, &aprs_msg_ptr);
 
-			*msg = build_lcd_msg(MSG_SEND, UI_MSG_NAME_SEND, aprs_msg);
+                        *msg = build_lcd_msg(MSG_SEND, UI_MSG_NAME_SEND, aprs_msg_ptr);
+                        if(!state->conf.aprs_message_ack) {
+                                free(aprs_msg_ptr);
+                        }
 
 		} else if(STREQ(type_str, "setconfig")) {
 
@@ -242,8 +231,8 @@ int ui_get_json_msg(int sock, struct ui_msg **msg, struct ui_msg *hdr)
 			data_str = (char *)json_object_get_string(data_obj);
 			/* Set a global boolean,
 			 *  -should be in conf struct */
-			glaprs_message_ack = STREQ(data_str, "ack on");
-			printf("DEBUG: ACK is turned %s\n", glaprs_message_ack ? "ON" : "OFF");
+			state->conf.aprs_message_ack = STREQ(data_str, "ack on");
+			printf("DEBUG: ACK is turned %s\n", state->conf.aprs_message_ack ? "ON" : "OFF");
 
 			*msg = build_lcd_msg(MSG_SEND, UI_MSG_NAME_SETCFG, aprs_msg);
 
@@ -288,11 +277,12 @@ int ui_get_json_msg(int sock, struct ui_msg **msg, struct ui_msg *hdr)
  * web apps sends json which gets converted to struct ui_msg
  *
  */
-int ui_get_msg(int sock, struct ui_msg **msg)
+int ui_get_msg(struct state *state, struct ui_msg **msg)
 {
 	struct ui_msg hdr;
 	char *buf = (char *)&hdr;
 	int ret;
+        int sock = state->dspfd;
 
 	ret = read(sock, &hdr, sizeof(hdr));
 	if (ret <= 0)
@@ -310,7 +300,7 @@ int ui_get_msg(int sock, struct ui_msg **msg)
 		printf("\n");
 	}
 	if(STRNEQ(buf, "{\"type\":", sizeof(hdr))) {
-		ret = ui_get_json_msg( sock, msg, &hdr);
+		ret = ui_get_json_msg( state, msg, &hdr);
 	} else {
 		*msg = malloc(hdr.length);
 		if (*msg == NULL) {

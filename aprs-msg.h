@@ -8,9 +8,10 @@ bool isnewmessage(struct state *state, fap_packet_t *fap);
 void webdisplay_message(struct state *state, fap_packet_t *fap);
 void webdisplay_thirdparty(struct state *state, fap_packet_t *fap);
 void save_message(struct state *state, fap_packet_t *fap);
-int send_message(struct state *state, char *msg);
 void handle_aprsMessages(struct state *state, fap_packet_t *fap, char *packet);
 void handle_thirdparty(struct state *state, fap_packet_t *fap);
+void send_msg_ack(struct state *state, fap_packet_t *fap);
+void send_message(struct state *state, char *to_str, char *mesg_str, char **build_msg);
 
 /* Debug only */
 void display_fap_message(struct state *state, fap_packet_t *fap);

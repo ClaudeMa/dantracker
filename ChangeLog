@@ -1,3 +1,14 @@
+Fri Apr 26 12:45:13 PDT 2013  Basil Gunn <basil@pacabunga.com>
+
+    * Restructure to enable retries with messaging.
+      Files modified:
+        uiclient.c
+        ui.h
+        aprs-msg.c
+        aprs-msg.h
+        aprs.c
+        aprs.h
+
 Fri Apr 26 12:23:24 PDT 2013   Basil Gunn <basil@pacabunga.com>
 
     * Add ability to set APRS-IS server filter in ini file.
