@@ -93,8 +93,10 @@ void save_message(struct state *state, fap_packet_t *fap)
         if(state->msghist[msgind] != NULL) {
                 aprsmsg = state->msghist[msgind];
                 free(aprsmsg->message);
+                aprsmsg->message = NULL;
                 if (aprsmsg->message_id != NULL) {
                         free(aprsmsg->message_id);
+                        aprsmsg->message_id = NULL;
                 }
         } else {
                 if( (state->msghist[msgind] = calloc(sizeof(aprsmsg_t), 1)) == NULL) {
@@ -109,6 +111,7 @@ void save_message(struct state *state, fap_packet_t *fap)
                 printf("%s: malloc message error: %s\n",
                        __FUNCTION__, strerror(errno));
                 free(aprsmsg);
+                state->msghist[msgind] = NULL;
                 return;
         }
 

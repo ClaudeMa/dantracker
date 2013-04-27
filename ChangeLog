@@ -1,3 +1,14 @@
+Sat Apr 27 12:33:47 PDT 2013  Basil Gunn <basil@pacabunga.com>
+
+    * Fix seg fault when checking message history.
+      File modified:  aprs-msg.c
+
+    * Display message on Unix socket removal error only.
+      Remove debug message.
+      Files modified:
+        uiclient.c
+        aprs-ax25.c
+
 Fri Apr 26 12:45:13 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
     * Restructure to enable retries with messaging.

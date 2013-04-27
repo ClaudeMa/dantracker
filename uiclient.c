@@ -48,13 +48,17 @@ int ui_sock_cfg(struct state *state)
 
 void ui_unix_sock_wait(struct state *state)
 {
+        int retcode;
         struct stat sts;
 
         /* get rid of the Unix socket */
         unlink(state->conf.ui_sock_path);
-        stat(state->conf.ui_sock_path, &sts);
-        pr_debug("stat on %s returned an errno of 0x%02x %s\n",
-                 state->conf.ui_sock_path, errno, strerror(errno));
+        /* verify Unix socket removal was a success */
+        retcode = stat(state->conf.ui_sock_path, &sts);
+        if(retcode != -1 || errno != ENOENT) {
+                printf("Problem deleting Unix socket %s, stat returned an errno of 0x%02x %s\n",
+                       state->conf.ui_sock_path, errno, strerror(errno));
+        }
 
         /* Wait for the socket to be created by the node script */
         printf("Waiting for node script to create a Unix socket\n");
