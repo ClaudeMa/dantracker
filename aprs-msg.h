@@ -4,6 +4,9 @@
 #ifndef __APRS_MSG_H
 #define __APRS_MSG_H
 
+/* time to wait in seconds for initial ACK response */
+#define ACK_INTERVAL 30
+
 bool isnewmessage(struct state *state, fap_packet_t *fap);
 void webdisplay_message(struct state *state, fap_packet_t *fap);
 void webdisplay_thirdparty(struct state *state, fap_packet_t *fap);
@@ -12,6 +15,7 @@ void handle_aprsMessages(struct state *state, fap_packet_t *fap, char *packet);
 void handle_thirdparty(struct state *state, fap_packet_t *fap);
 void send_msg_ack(struct state *state, fap_packet_t *fap);
 void send_message(struct state *state, char *to_str, char *mesg_str, char **build_msg);
+void handle_ack_timer(struct state *state, ack_outstand_t *ackout);
 
 /* Debug only */
 void display_fap_message(struct state *state, fap_packet_t *fap);

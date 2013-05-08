@@ -1,3 +1,45 @@
+Tue May  7 17:06:29 PDT 2013  Basil Gunn <basil@pacabunga.com>
+
+    * Implement message retry until ACK received.
+      Files modified:
+        aprs-msg.c
+        aprs-msg.h
+        aprs.c
+        aprs.h
+
+    * Remove jquery version number from file name.
+      Install script now gets latest version of jquery lib.
+      Files modified:
+        webapp/spy.html
+        webapp/tracker.html
+        README
+        install.sh
+
+    * Clean-up duplicate included header files.
+      File modified: aprs-ax25.c
+
+    * Parameterize version number & bump minor number to 2.
+      Files modified:
+        aprs.h
+        conf.c
+
+    * Increase scroll back buffer size.
+      File modified: scripts/.screenrc.trk
+
+    * Changed image size of icons.
+      Files modified:
+        Makefile
+        webapp/tracker-frontend.js
+
+    * Changes to get GTKAPP_ENABLE to build.
+      There are fewer errors but the GTK APP will not
+       build from this tree anymore.
+      Files modified:
+        Makefile
+        uiclient.c
+        ui.c
+        aprs.c
+
 Sat Apr 27 12:33:47 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
     * Fix seg fault when checking message history.

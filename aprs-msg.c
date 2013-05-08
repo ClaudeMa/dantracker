@@ -6,16 +6,22 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <stdbool.h>
 #include <assert.h>
 #include <errno.h>
 #include <ctype.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/timerfd.h>
 
 #include "util.h"
 #include "aprs.h"
 #include "aprs-ax25.h"
 #include "aprs-msg.h"
 
+
+void handle_thirdparty(struct state *state, fap_packet_t *fap) {
+        printf("%s: handle encap\n", time2str(fap->timestamp, 0));
+}
 
 #ifdef  WEBAPP
 char *format_msgtime(time_t *timestamp)
@@ -137,7 +143,7 @@ void save_message(struct state *state, fap_packet_t *fap)
                                __FUNCTION__, strerror(errno));
                         return;
                 }
-
+                aprsmsg->acked = false;
                 strncpy(aprsmsg->message_id, fap->message_id, MAX_MSGID);
                 get_base_callsign(basecall, &ssid, aprsmsg->dstcall);
                 printf("callsign check: %s %s\n", basecall, aprsmsg->dstcall);
@@ -205,9 +211,111 @@ bool isEncap(fap_packet_t *fap, char **encap) {
         return false;
 }
 
+#define MAX_ACK_RETRY_COUNT 4
+int retry_interval_mult[] = {1,1,2,4,8};
+/*
+ * Start a timer for retrying message
+ */
+int pending_ack_timer(ack_outstand_t *ackout, int ack_request_number)
+{
+        int fd;
+        int interval = ACK_INTERVAL*retry_interval_mult[ack_request_number];
+        struct itimerspec *newitimer;
+
+        if( (newitimer = (struct itimerspec *)calloc(sizeof(struct itimerspec), 1)) == NULL) {
+                printf("%s: malloc itimerspec error: %s\n",
+                       __FUNCTION__, strerror(errno));
+                return -1;
+        }
+
+        fd = timerfd_create(CLOCK_MONOTONIC, O_NONBLOCK);
+        if (fd == -1) {
+                printf("%s: timerfd_create error: %s\n",
+                       __FUNCTION__, strerror(errno));
+                free(newitimer);
+                return -1;
+        }
+        /* Save timer state before starting timer */
+        printf("pending ack timer with fd = 0x%02x\n", fd);
+        ackout->timer_fd = fd;
+        ackout->ack_retry_count = ack_request_number;
+        ackout->needs_ack = true;
+        ackout->itimerspec = newitimer;
+
+        /* Start a relative timer */
+        newitimer->it_value.tv_nsec = 0;
+        newitimer->it_value.tv_sec = interval;
+        if(timerfd_settime(fd, 0, newitimer, NULL) == -1) {
+                printf("%s: timerfd_settime error: %s\n",
+                       __FUNCTION__, strerror(errno));
+        }
+
+        return 1;
+}
+
+int clear_ack_request(ack_outstand_t *ackout)
+{
+        ackout->needs_ack = false;
+        if(ackout->aprs_msg != NULL) {
+                free(ackout->aprs_msg);
+        }
+        ackout->aprs_msg = NULL;
+        /* Disable timer */
+        ackout->itimerspec->it_value.tv_nsec = 0;
+        ackout->itimerspec->it_value.tv_sec = 0;
+        if(timerfd_settime(ackout->timer_fd, 0,
+                           ackout->itimerspec, NULL) == -1) {
+                printf("%s: timerfd_settime error: %s\n",
+                       __FUNCTION__, strerror(errno));
+        }
+        close(ackout->timer_fd);
+        ackout->timer_fd = 0;
+        free(ackout->itimerspec);
+
+        return 1;
+}
+
+void handle_ack_timer(struct state *state, ack_outstand_t *ackout) {
+
+        ssize_t readsize;
+        uint64_t exp_count;
+
+        printf("%s: *** handle_ack_timer for %d\n",
+               time2str(NULL, 0),
+               ackout->ack_msgid);
+
+        /* consume the expiration event */
+        readsize = read(ackout->timer_fd, &exp_count, sizeof(uint64_t));
+        if (readsize != sizeof(uint64_t)) {
+                printf("%s: timerfd_read error: %s\n",
+                       __FUNCTION__, strerror(errno));
+                return;
+        }
+        if(ackout->ack_retry_count >= MAX_ACK_RETRY_COUNT) {
+                clear_ack_request(ackout);
+                state->outstanding_ack_timer_count--;
+
+        } else {
+                printf("RESENDING msg, handle_ack_timer for %d, retry: %d\n",
+                       ackout->ack_msgid, ackout->ack_retry_count);
+
+                /* Send message again */
+                send_beacon(state, ackout->aprs_msg);
+                ackout->ack_retry_count++;
+                /* Re-arm timer */
+                ackout->itimerspec->it_value.tv_sec = ACK_INTERVAL*retry_interval_mult[ackout->ack_retry_count];
+                if(timerfd_settime(ackout->timer_fd, 0,
+                                   ackout->itimerspec, NULL) == -1) {
+                        printf("%s: timerfd_settime error: %s\n",
+                               __FUNCTION__, strerror(errno));
+                }
+        }
+}
+
 void handle_aprsMessages(struct state *state, fap_packet_t *fap, char *packet) {
 
         int ack_ind;
+        bool isnew;
 
         if(fap->destination != NULL) {
                 printf("\n%s Msg [%lu]: type: 0x%02x, dest: %s -> %s\n",
@@ -241,11 +349,9 @@ void handle_aprsMessages(struct state *state, fap_packet_t *fap, char *packet) {
                                         pr_debug("aprs msg already acked: %s, index %d %d\n",
                                                 fap->message_ack, ack_ind, state->ackout[ack_ind].ack_msgid);
                                 } else {
-                                        state->ackout[ack_ind].needs_ack = false;
-                                        if(state->ackout[ack_ind].aprs_msg != NULL) {
-                                                free(state->ackout[ack_ind].aprs_msg);
-                                        }
-                                        state->ackout[ack_ind].aprs_msg = NULL;
+                                        printf("Received an ACK for msgid %d\n", ack_ind);
+                                        clear_ack_request(&state->ackout[ack_ind]);
+                                        state->outstanding_ack_timer_count--;
                                 }
                         }
                 }
@@ -253,16 +359,15 @@ void handle_aprsMessages(struct state *state, fap_packet_t *fap, char *packet) {
                  * Qualify messsage requiring an ACK
                  */
                 if(fap->message_id != NULL) {
-                        /* Send an ACK */
-                        pr_debug("Receiving aprs message from %s requiring an ack: %s\n",
+                        /* Send an ACK for new messages only */
+                        pr_debug("Receiving aprs message from %s requiring an ack: %s ",
                                  fap->src_callsign, fap->message_id);
-                        send_msg_ack(state, fap);
+                        if((isnew = isnewmessage(state, fap))) {
+                                send_msg_ack(state, fap);
+                        }
+                        printf(", for %s message\n", isnew ? "new" : "OLD");
                 }
         }
-}
-
-void handle_thirdparty(struct state *state, fap_packet_t *fap) {
-        printf("%s: handle encap\n", time2str(fap->timestamp, 0));
 }
 
 /*
@@ -394,6 +499,7 @@ void send_message(struct state *state, char *to_str, char *msg_str, char **build
 {
         char *aprs_msg;
         int ack_ind;
+        ack_outstand_t *ackout;
 
         if(state->conf.aprs_message_ack) {
                 state->ack_msgid++; /* Bump APRS message number */
@@ -414,15 +520,25 @@ void send_message(struct state *state, char *to_str, char *msg_str, char **build
                          state->ack_msgid);
 
                 /* save pointer to message in case a retry is required */
-                state->ackout[ack_ind].aprs_msg = aprs_msg;
-                state->ackout[ack_ind].timestamp = time(NULL);
-
+                ackout = &state->ackout[ack_ind];
+                ackout->aprs_msg = aprs_msg;
+                ackout->timestamp = time(NULL);
+                pending_ack_timer(ackout, 0);
+                state->outstanding_ack_timer_count++;
+                if(state->outstanding_ack_timer_count > MAX_OUTSTANDING_MSGS) {
+                        printf("Exceeded outstanding unacknowledged message limit\n");
+                }
+                printf("%s: Set pending_ack_timer for msg id %d, interval = %d seconds, fd = 0x%02x\n",
+                       time2str(NULL, 0), ack_ind,
+                       ACK_INTERVAL*retry_interval_mult[0],
+                       state->ackout[ack_ind].timer_fd
+                      );
         } else {
                 asprintf(&aprs_msg,":%-9s:%s",
                          to_str,
                          msg_str);
         }
-        printf("aprs msg: %s\n", aprs_msg);
+        printf("SENDING first aprs msg: %s\n", aprs_msg);
         send_beacon(state, aprs_msg);
         *build_msg = aprs_msg;
 }

@@ -701,6 +701,7 @@ void display_dist_and_dir(struct state *state, fap_packet_t *fap)
         _ui_send(state, "AI_DISTANCE", buf);
 }
 
+#ifdef WEBAPP
 void display_statistics(struct state *state)
 {
         json_object *jstats;
@@ -726,6 +727,7 @@ void display_statistics(struct state *state)
                  json_object_to_json_string(jstats));
 
 }
+#endif /* WEBAPP */
 
 void display_packet(struct state *state, fap_packet_t *fap)
 {
@@ -1070,10 +1072,11 @@ void parse_incoming_packet(struct state *state, char *packet, int len, int isax2
                 if (fap->type != NULL) {
                         /* Handle message packets */
                         switch(*fap->type) {
+#ifdef WEBAPP
                                 case fapMESSAGE:
                                         handle_aprsMessages(state, fap, packet);
                                         break;
-
+#endif /* WEBAPP */
                                 case fapTHIRD_PARTY:
                                         handle_thirdparty(state, fap);
                                         break;
@@ -1110,7 +1113,9 @@ void parse_incoming_packet(struct state *state, char *packet, int len, int isax2
                 display_fap_error("incoming pkt", state, fap);
                 fap_free_wrapper("incoming pkt", state, fap);
         }
+#ifdef WEBAPP
         display_statistics(state);
+#endif /* WEBAPP */
 }
 
 int handle_incoming_packet(struct state *state)
@@ -1188,7 +1193,7 @@ int display_gps_info(struct state *state)
                   mypos->sats);
         _ui_send(state, "G_LATLON", buf);
 
-        if (mypos->speed > 1.0) {
+        if (mypos->speed > MIN_GPS_SPEED) {
                 sprintf(buf, "%s %2s, Alt %s",
                           format_speed(state, "%.0f %s", KTS_TO_KPH(mypos->speed)),
                           direction(mypos->course),
@@ -1787,7 +1792,7 @@ double sb_course_change_thresh(struct state *state)
         return min + (slope / mph);
 }
 
-int should_beacon(struct state *state)
+bool should_beacon(struct state *state)
 {
         struct posit *mypos = MYPOS(state);
         time_t delta = time(NULL) - state->last_beacon;
@@ -1815,7 +1820,7 @@ int should_beacon(struct state *state)
 
         /* NEVER more often than every 10 seconds! */
         if (delta < 10)
-                return 0;
+                return false;
 
         /* The fractional penetration into the lo/hi zone */
         speed_frac = (KTS_TO_MPH(mypos->speed) -
@@ -1887,6 +1892,7 @@ int should_beacon(struct state *state)
  out:
         if (reason) {
                 char tmp[256];
+
                 if (req <= 0)
                         strcpy(tmp, reason);
                 else
@@ -1894,12 +1900,25 @@ int should_beacon(struct state *state)
                 _ui_send(state, "G_REASON", tmp);
         }
 
+        /* req = 0 if never, -1 if now */
         if (req == 0) {
                 update_mybeacon_status(state);
-                return 0;
-        } else if (req == -1)
-                return 1;
+                return false;
+        } else if (req == -1) {
+                /* temporary debug */
+                printf("%s: beacon reason: %s, req: now\n",
+                       time2str(NULL, 0),
+                       reason ? reason : "No reason");
+                return true;
+        }
 
+        /* temporary debug */
+        if(delta > req) {
+                printf("%s: beacon reason: %s, req: %lu delta: %lu\n",
+                       time2str(NULL, 0),
+                       reason ? reason : "No reason",
+                       req, delta);
+        }
         return delta > req;
 }
 
@@ -2140,7 +2159,10 @@ int main(int argc, char **argv)
 
         state.dspfd = -1;
 
-        printf("APRS v0.1.%04i (%s)\n", atoi(BUILD), REVISION);
+        printf("APRS v%d.%02d.%04i (%s)\n",
+               TRACKER_MAJOR_VERSION,
+               TRACKER_MINOR_VERSION,
+               atoi(BUILD), REVISION);
 
         fap_init();
 
@@ -2286,6 +2308,15 @@ int main(int argc, char **argv)
                         FD_SET(state.telfd, &fds);
                 if (state.dspfd > 0)
                         FD_SET(state.dspfd, &fds);
+                if(state.outstanding_ack_timer_count > 0) {
+                        i = 0;
+                        while(i < MAX_OUTSTANDING_MSGS) {
+                                if(state.ackout[i].timer_fd > 0) {
+                                        FD_SET(state.ackout[i].timer_fd, &fds);
+                                }
+                                i++;
+                        }
+                }
 
                 if (STREQ(state.conf.gps_type, "static"))
                         fake_gps_data(&state);
@@ -2305,8 +2336,19 @@ int main(int argc, char **argv)
                         if( (state.telfd != -1) && FD_ISSET(state.telfd, &fds)) {
                                 handle_telemetry(&state);
                         }
-                        if (FD_ISSET(state.dspfd, &fds))
+                        if (FD_ISSET(state.dspfd, &fds)) {
                                 handle_display(&state);
+                        }
+                        if (state.outstanding_ack_timer_count > 0) {
+                                i = 0;
+                                while(i < MAX_OUTSTANDING_MSGS) {
+                                        if( (state.ackout[i].timer_fd > 0) &&
+                                            (FD_ISSET(state.ackout[i].timer_fd, &fds)) ) {
+                                                handle_ack_timer(&state, &state.ackout[i]);
+                                        }
+                                        i++;
+                                }
+                        }
                 } else {
                         /* Work to do if no other events */
                         update_packets_ui(&state);
