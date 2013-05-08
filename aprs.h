@@ -12,10 +12,14 @@
 #include <fap.h>
 #include <iniparser.h>
 #include <stdbool.h>
+#include <inttypes.h>
 
 #include "nmea.h"
 
-#define MAX_AX25_DIGIS 8        /* Maximim number of digipeaters: */
+#define TRACKER_MAJOR_VERSION 0
+#define TRACKER_MINOR_VERSION 2
+
+#define MAX_AX25_DIGIS 8        /* Maximum number of digipeaters: */
 #define MAX_APRS_MSG_LEN (67)
 #define MAX_CALLSIGN  9
 #define MAX_MSGID     5
@@ -23,6 +27,10 @@
 #define MAX_KEY_LEN 16
 #define MAX_SUBST_LINE 1024
 #define MAX_OUTSTANDING_MSGS 8  /* needs to be a power of 2 */
+
+/* While stationary GPS regularly reported a speed of 1.04 mph
+ *  - define speed that is criteria for stationary */
+#define MIN_GPS_SPEED (3.0)
 
 #define KEEP_PACKETS 8
 #define KEEP_POSITS  4
@@ -85,6 +93,8 @@ typedef struct aprsmsg {
 typedef struct ack_outstanding {
         bool needs_ack;
         time_t timestamp;
+        int timer_fd;
+        struct itimerspec *itimerspec;
         int ack_msgid;
         int ack_retry_count;
         char *aprs_msg;
@@ -199,6 +209,7 @@ struct state {
         aprsmsg_t *msghist[KEEP_MESSAGES];
         int msghist_idx;
 
+        int outstanding_ack_timer_count;
         ack_outstand_t ackout[MAX_OUTSTANDING_MSGS];
         int ack_msgid;
 

@@ -297,7 +297,10 @@ char *get_keysubst(struct state *state, int keyind)
                         asprintf(&value, "%i", MYPOS(state)->sats);
                         break;
                 case 5: /* ver */
-                        asprintf(&value, "v0.1.%04i (%s)", atoi(BUILD), REVISION);
+                        asprintf(&value, "v%d.%02d.%04d (%s)",
+                                 TRACKER_MAJOR_VERSION,
+                                 TRACKER_MINOR_VERSION,
+                                 atoi(BUILD), REVISION);
                         break;
                 case 6: /* time */
                         t = time(NULL);
