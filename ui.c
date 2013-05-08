@@ -2,16 +2,14 @@
 /* Copyright 2012 Dan Smith <dsmith@danplanet.com> */
 
 #define _GNU_SOURCE
-#include <unistd.h>
+
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <unistd.h>
 #include <errno.h>
-#include <sys/socket.h>
 #include <sys/un.h>
 #include <arpa/inet.h>
 #include <getopt.h>
-#include <stdbool.h>
 
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
@@ -688,7 +686,7 @@ int server_setup_inet(struct state *state)
 
 	sockaddr.sin_family = AF_INET;
 	sockaddr.sin_addr.s_addr = 0;
-	sockaddr.sin_port = htons(state->conf.ui_sock_port);
+	sockaddr.sin_port = htons(state->conf.ui_inet_port);
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {

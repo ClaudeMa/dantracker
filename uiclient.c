@@ -23,7 +23,6 @@ int ui_sock_cfg(struct state *state)
 {
         struct sockaddr *dest;
         int sock;
-
         struct sockaddr_un sun;
 
         sun.sun_family = AF_UNIX;
@@ -156,6 +155,7 @@ int ui_send(int sock, const char *name, const char *value)
 }
 
 
+#ifdef WEBAPP
 #define RBUFSIZE 1024
 
 int ui_get_json_msg(struct state *state, struct ui_msg **msg, struct ui_msg *hdr)
@@ -273,6 +273,7 @@ int ui_get_json_msg(struct state *state, struct ui_msg **msg, struct ui_msg *hdr
 
 	return ret;
 }
+#endif /* WEBAPP */
 
 /*
  * Read socket sourced from displays of either web app or lcd hardware
@@ -283,41 +284,45 @@ int ui_get_json_msg(struct state *state, struct ui_msg **msg, struct ui_msg *hdr
  */
 int ui_get_msg(struct state *state, struct ui_msg **msg)
 {
-	struct ui_msg hdr;
-	char *buf = (char *)&hdr;
-	int ret;
+        struct ui_msg hdr;
+        int ret;
         int sock = state->dspfd;
 
-	ret = read(sock, &hdr, sizeof(hdr));
-	if (ret <= 0)
-		return ret;
+        ret = read(sock, &hdr, sizeof(hdr));
+        if (ret <= 0)
+                return ret;
 
-	/*
-	 * Retain compatibility with previous code
-	 * Read the rest of the message as JSON
-	 */
-	{
-		int i;
-		for(i=0; i < 7; i++) {
-			printf("%02x ", buf[i]);
-		}
-		printf("\n");
-	}
-	if(STRNEQ(buf, "{\"type\":", sizeof(hdr))) {
-		ret = ui_get_json_msg( state, msg, &hdr);
-	} else {
-		*msg = malloc(hdr.length);
-		if (*msg == NULL) {
-			printf("%s: malloc error: %s\n",
-			       __FUNCTION__, strerror(errno));
-			return -ENOMEM;
-		}
+#ifdef WEBAPP
+        /*
+         * Retain compatibility with previous code
+         * Read the rest of the message as JSON
+         */
+        {
+                char *buf = (char *)&hdr;
+                int i;
 
-		memcpy(*msg, &hdr, sizeof(hdr));
+                for(i=0; i < 7; i++) {
+                        printf("%02x ", buf[i]);
+                }
+                printf("\n");
 
-		ret = read(sock, ((char *)*msg)+sizeof(hdr), hdr.length - sizeof(hdr));
-	}
-	return 1;
+                if(STRNEQ(buf, "{\"type\":", sizeof(hdr))) {
+                        ret = ui_get_json_msg( state, msg, &hdr);
+                } else {
+                        *msg = malloc(hdr.length);
+                        if (*msg == NULL) {
+                                printf("%s: malloc error: %s\n",
+                                       __FUNCTION__, strerror(errno));
+                                return -ENOMEM;
+                        }
+
+                        memcpy(*msg, &hdr, sizeof(hdr));
+
+                        ret = read(sock, ((char *)*msg)+sizeof(hdr), hdr.length - sizeof(hdr));
+                }
+        }
+#endif /* WEBAPP */
+        return 1;
 }
 
 char *ui_get_msg_name(struct ui_msg *msg)
@@ -473,7 +478,7 @@ int ui_send_inet(struct opts *opts, struct state *state)
 
 
         sin.sin_family = AF_INET;
-        sin.sin_port = htons(state->conf.ui_sock_port);
+        sin.sin_port = htons(state->conf.ui_inet_port);
 
         host = gethostbyname(hostname);
         if (!host) {
