@@ -17,7 +17,6 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <netdb.h>
@@ -26,7 +25,6 @@
 #include <netinet/if_ether.h>
 #include <netax25/axlib.h>
 #include <netax25/axconfig.h>
-#include <stdbool.h>
 
 #include "aprs.h"
 #include "aprs-is.h"
