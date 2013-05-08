@@ -66,13 +66,13 @@ function gps_signal_display(barval) {
 }
 
 function display_icon(index, imgobj, window) {
-        var APRS_IMG_MULT = 4;
+        var APRS_IMG_MULT = 7;
 
         var can = document.getElementById(window);
         var ctx = can.getContext('2d');
 
         /* erase previous icon */
-        ctx.clearRect(lastDestX,lastDestY,80,80);
+        ctx.clearRect(lastDestX,lastDestY,140, 140);
 
         var icon_X = ((20 + 1) * APRS_IMG_MULT * (index % 16));
         /* divide by 16 using integer math */

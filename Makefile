@@ -12,7 +12,7 @@ DEST="root@beagle:carputer"
 #  - convert in the images Makefile,
 #  - ui.c as APRS_IMG_MULT
 #  - tracker-frontend.js as APRS_IMG_MULT
-APRS_IMG_MULT=4
+APRS_IMG_MULT=7
 APRS_ICON_SIZE=${APRS_IMG_MULT}00%
 # Make available to Makefile in images directory
 export APRS_ICON_SIZE
@@ -73,7 +73,7 @@ aprs: aprs.o uiclient.o nmea.o aprs-is.o serial.o aprs-ax25.o aprs-msg.o conf.o 
 	echo $$((`cat .build` + 1)) > .build
 	$(CC) $(CFLAGS) $(APRS_CFLAGS) -o $@ $^  $(LIBS)
 
-ui: ui.c uiclient.o ui.h util.c util.h
+ui: ui.c uiclient.o aprs.h ui.h util.c util.h
 	$(CC) $(CFLAGS) -DAPRS_IMG_MULT=${APRS_IMG_MULT} $(GTK_CFLAGS) $(GLIB_CFLAGS) $^ -o $@ $(GTK_LIBS) $(GLIB_LIBS) $(LIBS)
 
 uiclient: uiclient.c ui.h util.c util.h
