@@ -59,14 +59,10 @@ WEBAPP: Only used by web app, see Makefile
     make install
 
   javascript libraries
-    http://jquery.com/download/
-
-    At the time this README was written version 1.8.3 was currrent.
-    If a newer version is used change files:
-     webapp/spy.html & webapp/tracker.html
-     Past Release, version 1.8.3 may be downloaded from above URL.
-
-    jquery-1.8.3.min.js
+    Needs version 1.8.3 or greater
+    wget http://bit.ly/jqsource -O jquery.js
+    sudo cp jquery.js /usr/share/dantracker
+    Above taken care of by install script.
 
   node modules
     ctype

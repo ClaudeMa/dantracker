@@ -23,6 +23,17 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
+# Test if directory /usr/share/dantracker exists
+checkDir /usr/share/dantracker
+
+# Test if jquery javascript library has already been installed
+if [ ! -e "/usr/share/$package_name/jquery.js" ] ; then
+wget http://bit.ly/jqsource -O jquery.js
+jqversion=$(grep -m 1 -i core_version jquery.js | cut -d '"' -f2 | cut -d '"' -f1)
+echo "installing jquery version $jqversion"
+cp jquery.js /usr/share/$package_name/
+fi
+
 # Test if directory /etc/tracker exists
 checkDir /etc/tracker
 
