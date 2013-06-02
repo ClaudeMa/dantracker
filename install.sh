@@ -2,6 +2,7 @@
 #
 package_name="dantracker"
 FILELIST="aprs aprs-ax25"
+JQUERY_DIR="/usr/share/$package_name/jQuery"
 
 #-- creates directory $1, if it does not exist
 checkDir() {
@@ -15,7 +16,6 @@ if [ ! -e "$binfile" ] ; then
   echo "file $binfile DOES NOT exist, run make"
   exit 1
 fi
-
 done
 
 if [[ $EUID -ne 0 ]]; then
@@ -27,11 +27,14 @@ fi
 checkDir /usr/share/dantracker
 
 # Test if jquery javascript library has already been installed
-if [ ! -e "/usr/share/$package_name/jquery.js" ] ; then
-wget http://bit.ly/jqsource -O jquery.js
-jqversion=$(grep -m 1 -i core_version jquery.js | cut -d '"' -f2 | cut -d '"' -f1)
-echo "installing jquery version $jqversion"
-cp jquery.js /usr/share/$package_name/
+if [ ! -e "$JQUERY_DIR/jquery.js" ] ; then
+    echo "Installing jQuery directory"
+    wget http://bit.ly/jqsource -O jquery.js
+    jqversion=$(grep -m 1 -i core_version jquery.js | cut -d '"' -f2 | cut -d '"' -f1)
+    echo "installing jquery version $jqversion"
+    cp jquery.js $JQUERY_DIR
+else
+    echo "jQuery libraries ALREADY installed"
 fi
 
 # Test if directory /etc/tracker exists
@@ -47,9 +50,12 @@ fi
 cp scripts/tracker* /etc/tracker
 cp scripts/.screenrc.trk /etc/tracker
 cp scripts/.screenrc.spy /etc/tracker
-rsync -av --cvs-exclude --include "*.js" --include "*.html" --exclude "*" webapp/ /usr/share/$package_name/
+rsync -av --cvs-exclude --include "*.js" --include "*.html" --include "*.css" --exclude "*" webapp/ /usr/share/$package_name/
 rsync -av --cvs-exclude --include "*.png" --exclude "Makefile" images /usr/share/$package_name/
+
+echo "Install tracker & spy binaries"
 cp aprs /usr/local/bin
 cp aprs-ax25 /usr/local/bin
 
+echo "Install finished"
 exit 0
