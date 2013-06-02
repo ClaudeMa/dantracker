@@ -1,4 +1,5 @@
 defscrollback 2000
-screen sh -c '/usr/local/bin/aprs -c /etc/tracker/aprs_tracker.ini; exec bash'
-screen sh -c '/usr/local/bin/node /usr/share/dantracker/tracker-server.js /etc/tracker/aprs_tracker.ini; exec bash'
-screen sh -c 'tail -f /tmp/aprs_tracker.log; exec bash'
+screen -t aprs sh -c '/usr/local/bin/aprs -c /etc/tracker/aprs_tracker.ini; exec bash'
+screen -t tracker sh -c '/usr/local/bin/node /usr/share/dantracker/tracker-server.js /etc/tracker/aprs_tracker.ini; exec bash'
+sleep 2
+screen -t tlog sh -c 'tail -f /tmp/aprs_tracker.log; exec bash'
