@@ -1,5 +1,5 @@
 /*
- * $Id: mondefs.h 259 2012-12-24 23:26:18Z basil@pacabunga.com $
+ * $Id: mondefs.h 401 2013-05-14 22:02:10Z basil@pacabunga.com $
  * Definitions of the server the client may need too
  */
 
@@ -27,7 +27,7 @@
 
 #ifdef HAVE_NETAX25_AXLIB_H
    #include <netax25/axconfig.h>
-   #include <netax25/axlib.h> 
+   #include <netax25/axlib.h>
 #elif HAVE_AX25_AXUTILS_H
    #include <ax25/axconfig.h>
    #include <ax25/axutils.h>
@@ -276,8 +276,4 @@ struct t_ax25packet {
     int  datacrc;    /* for framecollector */
 };
 
-
-
-
-#endif
-
+#endif  /* _MONDEFS_H */
