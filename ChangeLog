@@ -1,6 +1,11 @@
+Sun Jun  2 13:37:59 PDT 2013  Basil Gunn <basil@pacabunga.com>
+
+    * Include tabifying javascript code.
+      File added: webapp/acidTabs.js
+
 Sun Jun  2 12:38:49 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
-    * Websocket port specified in aprs_tracker ini file must match
+    * websock_port specified in aprs_tracker ini file must match
        WebIpSock variable in tracker-frontend.js.
       File modified: examples/aprs_tracker.ini
 
@@ -12,8 +17,7 @@ Sun Jun  2 11:15:35 PDT 2013  Basil Gunn <basil@pacabunga.com>
       Change some window Ids so names are less generic.
     * Move jquery.js to its own directory.
     * Add statistics counters for transmitted & retried packets
-      Files added:
-        webapp/styles.css
+      File added: webapp/styles.css
       Files modified:
         webapp/spy.html
         webapp/tracker-frontend.js
