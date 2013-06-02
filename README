@@ -56,7 +56,8 @@ WEBAPP: Only used by web app, see Makefile
     sh autogen.sh
     ./configure
     make
-    make install
+    sudo make install
+    ldconfig
 
   javascript libraries
     Needs version 1.8.3 or greater
