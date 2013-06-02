@@ -7,7 +7,7 @@ var lastDestY = 35;
 var lastSigBar = 10;
 var barTest = 0; /* test bar signal images */
 var sigbar_image = new Array(5);
-var aprsDebugWin = $('#aprsdebugwin');
+var aprsDebugWin = $('#debugwin');
 
 /**
  * Add message to Debug window 2
@@ -16,7 +16,7 @@ function addDebug(message) {
         // maximum number of APRS message to display in content DIV
         var maxDebugItems = 100;
 
-        var n = $("#aprsdebugwin").children().length;
+        var n = $("#debugwin").children().length;
         var dt = new Date();
         aprsDebugWin.append('<div class="item">' +
                              (dt.getHours() < 10 ? '0' + dt.getHours() : dt.getHours()) + ':'
@@ -26,7 +26,7 @@ function addDebug(message) {
         aprsDebugWin.scrollTop(aprsDebugWin[0].scrollHeight);
 
         if (n > maxDebugItems) {
-                $("#aprsdebugwin").children("div:first").remove()
+                $("#debugwin").children("div:first").remove()
         }
 }
 
@@ -147,15 +147,15 @@ $(function () {
         //        "use strict";
 
         /* Address of machine hosting aprs & node.js */
-        var WebIpSock="1337";
+        var WebIpSock="1339";
         /* Get server IP */
         var WebIpAddr = window.location.hostname;
         var image_dir = './images/';
 
         // for better performance - to avoid searching in DOM
-        var content = $('#content'); // Message history DIV
-        var input = $('#input');
-        var status = $('#status');
+        var messages = $('#messages'); // Message history DIV
+        var msginput = $('#msginput');
+        var msgstatus = $('#msgstatus');
         var aprsCurrentWin = $('#aprswin1');
         var aprsHistWin = $('#histwin2_1');
         var aprsHistWin2 = $('#histwin2_2');
@@ -165,7 +165,9 @@ $(function () {
         var canwin1 = $('#canwin1');
         var canwin2 = $('#canwin2');
         var aprscurrent = $('#aprscurrent');
-        var statsTotal = $('#stats_total');
+        var statsRx = $('#stats_recv');
+        var statsTx = $('#stats_xmit');
+        var statsRetry = $('#stats_retry');
         var statsMsg = $('#stats_msgcount');
         var statsWx = $('#stats_wxcount');
         var statsEncap = $('#stats_encapcount');
@@ -190,7 +192,7 @@ $(function () {
         /* Interval clock Id for blinking current aprs window when new
          *  packet arrives. */
         var clockID = 0;
-        // maximum number of APRS message to display in content DIV
+        // maximum number of APRS message to display in messages DIV
         var maxMsgItems = 30;
 
         /* Load 5 signal bar image sources */
@@ -249,9 +251,9 @@ $(function () {
 
         // if browser doesn't support WebSocket, just show some notification and exit
         if (!window.WebSocket) {
-                content.html($('<p>', { text: 'Sorry, but your browser doesn\'t '
+                messages.html($('<p>', { text: 'Sorry, but your browser doesn\'t '
                 + 'support WebSockets.'} ));
-                input.hide();
+                msginput.hide();
                 $('span').hide();
                 return;
         }
@@ -262,7 +264,7 @@ $(function () {
         connection.onopen = function () {
                 // first we want users to enter their names
                 callsign_to.removeAttr('disabled');
-                status.text('Enter message:');
+                msgstatus.text('Enter message:');
 
                 /*
                  * Request Source callsign
@@ -272,7 +274,7 @@ $(function () {
 
         connection.onerror = function (error) {
                 // just in there were some problems with conenction...
-                content.html($('<p>', { text: 'Sorry, but there\'s some problem with your '
+                messages.html($('<p>', { text: 'Sorry, but there\'s some problem with your '
                 + 'connection or the server is down.</p>' } ));
         };
 
@@ -282,7 +284,7 @@ $(function () {
         aprsGpsWin.text('win3: ' );
         aprsWeatherWin.text('win4: ');
         aprsDebugWin.text('Debug window');
-        content.text('Messages');
+        messages.text('Messages');
         aprsEncapWin.text('Encapsulated Packets');
 
         /* display server address */
@@ -324,16 +326,14 @@ $(function () {
                 // check the server source code above
                 if (json.type === 'color') { // first response from the server with user's color
                         myColor = json.data;
-//                        status.text(myName + ': send to:').css('color', myColor);
-//                        input.removeAttr('disabled').focus();
+//                        msgstatus.text(myName + ': send to:').css('color', myColor);
+//                        msginput.removeAttr('disabled').focus();
                         // from now user can start sending messages
                 } else if (json.type === 'sendto') { // destination address
-//                        status.text('send to: ' + destName + ': ').css('color', myColor);
-//                        input.removeAttr('disabled').focus();
+//                        msgstatus.text('send to: ' + destName + ': ').css('color', myColor);
+//                        msginput.removeAttr('disabled').focus();
 
                 } else if (json.type === 'history') { // entire message history
-
-                        //                        content.html('<p>Where does this appear? ' + json.data.length + ' </p>');
 
                         // insert every single message to the chat window
                         var historydepth = (json.data.length > 3) ? 3 : json.data.length;
@@ -346,7 +346,7 @@ $(function () {
                         /* User should address 'To callsign:' */
                         callsign_to.removeAttr('disabled').focus(); // let the user address another message
 
-                        content.remove("p:gt(2)");
+                        messages.remove("p:gt(2)");
                         addMessage(json.data.from, json.data.text,
                                    json.data.color, new Date(json.data.time));
 
@@ -563,22 +563,26 @@ $(function () {
                                 /* Update statistics counters */
                                 var jstat = JSON.parse(jvalue);
 
-                                statsTotal.text(jstat.inPktCount);
+//                                aprsDebugWin.append('<p>' + 'Stats: ' + JSON.stringify(jvalue) + '</p>');
+
+                                statsRx.text(jstat.inPktCount);
+                                statsTx.text(jstat.outPktCount);
+                                statsRetry.text(jstat.retryPktCount);
                                 statsMsg.text(jstat.inMsgCount);
                                 statsWx.text(jstat.inWxCount);
                                 statsEncap.text(jstat.encapCount);
                                 statsErrors.text(jstat.fapErrorCount);
 
                         } else if(jname.indexOf("MS_") == 0) {
-                                var n = $("#content").children().length;
+                                var n = $("#messages").children().length;
 
-                                content.append('<div class="item"><span style="color:' + color + '">' + '</span> '
+                                messages.append('<div class="item"><span style="color:' + color + '">' + '</span> '
                                                + json1.value + '</div>');
 
-                                content.scrollTop(content[0].scrollHeight);
+                                messages.scrollTop(messages[0].scrollHeight);
 
                                 if (n > maxMsgItems) {
-                                        $("#content").children("div:first").remove()
+                                        $("#messages").children("div:first").remove()
                                 }
                         } else if(jname.indexOf("DB_") == 0) {
                                 var n = $("#aprsdebugwin2").children().length;
@@ -621,8 +625,8 @@ $(function () {
                         }
                         destName = msg;
                         connection.send(JSON.stringify( { type: 'sendto', data: msg} ));
-                        status.text('Enter Message');
-                        input.removeAttr('disabled').focus();
+                        msgstatus.text('Enter Message');
+                        msginput.removeAttr('disabled').focus();
                         addDebug('Callsign set: ' + destName);
                 }
         });
@@ -630,7 +634,7 @@ $(function () {
         /**
          * Send mesage when user presses Enter key
          **/
-        input.keydown(function(e) {
+        msginput.keydown(function(e) {
                 if (e.keyCode === 13) {
                         var msg = $(this).val();
                         if (!msg) {
@@ -639,11 +643,11 @@ $(function () {
                         $(this).val('');
                         // disable the input field to make the user wait until server
                         // sends back response
-                        input.attr('disabled', 'disabled');
+                        msginput.attr('disabled', 'disabled');
 
                         if (destName === false) {
-                                status.text('Error');
-                                input.attr('disabled', 'disabled').val('Enter "To callsign:"' );
+                                msgstatus.text('Error');
+                                msginput.attr('disabled', 'disabled').val('Enter "To callsign:"' );
 
                         } else {
                                 destName = false;
@@ -655,8 +659,8 @@ $(function () {
                  */
                 if (e.keyCode === 27) {
                         callsign_to.removeAttr('disabled').focus();
-                        status.text('Enter message:');
-                        input.attr('disabled', 'disabled');
+                        msgstatus.text('Enter message:');
+                        msginput.attr('disabled', 'disabled');
                 }
         });
 
@@ -736,9 +740,9 @@ $(function () {
          */
         setInterval(function() {
                 if (connection.readyState !== 1) {
-                        status.text('Error');
-                        input.attr('disabled', 'disabled').val('Unable to communicate '
-                                + 'with the WebSocket server.');
+                        msgstatus.text('Error:');
+                        msginput.attr('disabled', 'disabled').val('Unable to communicate '
+                                + 'with the Tracker WebSocket server.');
                 }
         }, 3000);
 
@@ -746,15 +750,15 @@ $(function () {
          * Add message to the chat window
          */
         function addMessage(from, message, color, dt) {
-                var n = $("#content").children().length;
+                var n = $("#messages").children().length;
 
-                content.append('<div class="item"><span style="color:' + color + '">' + from + '</span> @ ' +
+                messages.append('<div class="item"><span style="color:' + color + '">' + from + '</span> @ ' +
                                + (dt.getHours() < 10 ? '0' + dt.getHours() : dt.getHours()) + ':'
                                + (dt.getMinutes() < 10 ? '0' + dt.getMinutes() : dt.getMinutes())
                                + ': ' + message + '</div>');
 
                 if (n > maxMsgItems) {
-                        $("#content").children("div:first").remove()
+                        $("#messages").children("div:first").remove()
                 }
         }
 
@@ -764,7 +768,7 @@ $(function () {
          *  8 lines of call sign plus distance, direction
          */
         function addAprsHistory(from, message, color, dt) {
-                content.append('<p><span style="color:' + color + '">' + from + '</span> @ ' +
+                messages.append('<p><span style="color:' + color + '">' + from + '</span> @ ' +
                                + (dt.getHours() < 10 ? '0' + dt.getHours() : dt.getHours()) + ':'
                                + (dt.getMinutes() < 10 ? '0' + dt.getMinutes() : dt.getMinutes())
                                + ': ' + message + '</p>');
@@ -778,7 +782,7 @@ $(function () {
          * line 3:
          */
         function addAprsWeather(from, message, color, dt) {
-                content.append('<p><span style="color:' + color + '">' + from + '</span> @ ' +
+                messages.append('<p><span style="color:' + color + '">' + from + '</span> @ ' +
                                + (dt.getHours() < 10 ? '0' + dt.getHours() : dt.getHours()) + ':'
                                + (dt.getMinutes() < 10 ? '0' + dt.getMinutes() : dt.getMinutes())
                                + ': ' + message + '</p>');

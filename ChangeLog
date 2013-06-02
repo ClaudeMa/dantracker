@@ -1,3 +1,44 @@
+Sun Jun  2 11:15:35 PDT 2013  Basil Gunn <basil@pacabunga.com>
+
+    * Reduce web page foot print by tabifying functions.
+      Take css out of html files.
+      Name windows so 'hover-over' displays something.
+      Change some window Ids so names are less generic.
+    * Move jquery.js to its own directory.
+    * Add statistics counters for transmitted & retried packets
+      Files added:
+        webapp/styles.css
+      Files modified:
+        webapp/spy.html
+        webapp/tracker-frontend.js
+        webapp/tracker-server.js
+        webapp/tracker.html
+
+    * Add statistics counter for transmitted & retried packets
+    * use select() instead of sleep() for pacing playback packets.
+      Files modified:
+        aprs.c
+        aprs.h
+        aprs-msg.c
+
+    * Parameterize jquery install directory.
+      File modified install.sh
+
+    * Add conditional to header files. Comment #endif.
+      Files modified:
+        mondefs.h
+        monutil.h
+
+    * Add playback scale entry.
+      File modified: examples/aprs_spy.ini
+
+    * Name screens & wait for log file to be created before
+       trying to view it.
+      File modified: scripts/.screenrc.trk
+
+    * Add json-c to dynamic linker run-time bindings
+      File modified: README
+
 Tue May  7 17:06:29 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
     * Implement message retry until ACK received.

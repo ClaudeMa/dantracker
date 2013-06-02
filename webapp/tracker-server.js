@@ -49,7 +49,7 @@ iniparser.parse(ini_file, function(err, data) {
 //        var ds = util.inspect(data);
 //        console.log('iniparse test, ui_net: ' + ds);
 
-        console.log("Check ini parameters websock: " +  data.ui_net.webSocketPort + " html port: " + data.ui_net.html_port);
+        console.log("Check ini parameters websock: " +  data.ui_net.websock_port + " html port: " + data.ui_net.html_port);
 
         webSocketPort = data.ui_net.websock_port;
         if( data.ui_net.websock_port === undefined ) {
@@ -122,13 +122,14 @@ if(UNIXPORT != undefined) {
 }
 
 /**
- * HTTP server
+ *
+ * HTTP server for websocket
  **/
 var server = http.createServer(function(request, response) {
         // Not important for us. We're writing WebSocket server, not HTTP server
 });
 server.listen(webSocketPort, function() {
-	console.log((new Date()) + " Server is listening on port " + webSocketPort);
+	console.log((new Date()) + " Web Socket Server is listening on port " + webSocketPort);
 });
 
 /**
@@ -247,11 +248,12 @@ wsServer.on('request', function(request) {
                                 msg_emitter.emit("aprs_msg", json);
                                 destName = false;
 
+                        // Handle default
                         } else {
                                 console.log('Unhandled message type from client: ' + frontendmsg.type);
                         }
                 }
-        });
+        });  //connection on message
 
 	// user disconnected
 	connection.on('close', function(connection) {
@@ -263,8 +265,8 @@ wsServer.on('request', function(request) {
 			// push back user's color to be reused by another user
 			colors.push(userColor);
 		}
-	});
-});
+	}); //connection on close
+}); // wsServer on
 
 /**
  * ===================== network Socket server ========================
@@ -425,9 +427,9 @@ net.createServer(function(sock) {
                 sock.write(message);
         });
 
-}).listen(NETPORT, NETHOST);
+}).listen(NETPORT, NETHOST); /* create server */
 
-console.log('Server listening on ' + NETHOST +':'+ NETPORT);
+console.log('Unix Socket Server listening on ' + NETHOST +':'+ NETPORT);
 
 
 /**
@@ -442,5 +444,5 @@ connect.createServer(
         res.end('You need a path, try /tracker.html\n');
 }
 ).listen(HTMLPORT);
-
+console.log('HTML Server listening on port: ' + HTMLPORT);
 });
