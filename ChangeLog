@@ -1,3 +1,9 @@
+Sun Jun  2 12:38:49 PDT 2013  Basil Gunn <basil@pacabunga.com>
+
+    * Websocket port specified in aprs_tracker ini file must match
+       WebIpSock variable in tracker-frontend.js.
+      File modified: examples/aprs_tracker.ini
+
 Sun Jun  2 11:15:35 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
     * Reduce web page foot print by tabifying functions.
@@ -22,7 +28,7 @@ Sun Jun  2 11:15:35 PDT 2013  Basil Gunn <basil@pacabunga.com>
         aprs-msg.c
 
     * Parameterize jquery install directory.
-      File modified install.sh
+      File modified: install.sh
 
     * Add conditional to header files. Comment #endif.
       Files modified:
