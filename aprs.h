@@ -235,6 +235,8 @@ struct state {
         uint8_t digi_quality;
         struct {
                 unsigned long inPktCount;
+                unsigned long outPktCount;
+                unsigned long retryPktCount;
                 unsigned long inMsgCount;
                 unsigned long inWxCount;
                 unsigned long encapCount;

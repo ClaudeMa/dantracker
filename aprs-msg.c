@@ -299,6 +299,9 @@ void handle_ack_timer(struct state *state, ack_outstand_t *ackout) {
                 printf("RESENDING msg, handle_ack_timer for %d, retry: %d\n",
                        ackout->ack_msgid, ackout->ack_retry_count);
 
+                /* bump retry packet count */
+                state->stats.retryPktCount++;
+
                 /* Send message again */
                 send_beacon(state, ackout->aprs_msg);
                 ackout->ack_retry_count++;

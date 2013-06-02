@@ -125,6 +125,9 @@ bool send_net_beacon(int fd, char *packet)
  */
 bool send_beacon(struct state *state, char *packet)
 {
+        /* bump transmit packet count */
+        state->stats.outPktCount++;
+
         if(state->debug.console_display_filter & CONSOLE_DISPLAY_PKTOUT) {
                 printf("\n%s Packet out: len: %zu, src: %s, pkt: %s\n",
                        time2str(NULL, 0), strlen(packet), state->ax25_srcaddr, packet);
@@ -708,8 +711,14 @@ void display_statistics(struct state *state)
         json_object *jint;
 
         jstats = json_object_new_object();
-        jint= json_object_new_int(state->stats.inPktCount);
+        jint = json_object_new_int(state->stats.inPktCount);
         json_object_object_add(jstats, "inPktCount", jint);
+
+        jint = json_object_new_int(state->stats.outPktCount);
+        json_object_object_add(jstats, "outPktCount", jint);
+
+        jint = json_object_new_int(state->stats.retryPktCount);
+        json_object_object_add(jstats, "retryPktCount", jint);
 
         jint = json_object_new_int(state->stats.inMsgCount);
         json_object_object_add(jstats, "inMsgCount", jint);
@@ -2072,6 +2081,9 @@ int canned_packets(struct state *state)
         time_t last_time, wait_time;
         struct sockaddr sa;
         FILE *fsrecpkt;
+        fd_set fds;
+        struct timeval tv = {1, 0};
+        int ret;
 
         /* open play back file */
         fsrecpkt = fopen(state->debug.playback_pkt_filename, "rb");
@@ -2123,13 +2135,13 @@ int canned_packets(struct state *state)
                 /* pace the packets */
                 wait_time = recpkt.currtime - last_time;
 
-                printf("Waiting for %lu secs", wait_time);
+                printf("Wait %lu secs", wait_time);
 
                 /* Pace packets quicker than reality */
                 if(wait_time > 0)
                         wait_time = wait_time / state->debug.playback_time_scale;
 
-                printf(", new wait %lu seconds", wait_time);
+                printf(", now %lu secs\n", wait_time);
                 fflush(stdout);
 
                 if(wait_time < 0 || wait_time > 5*60) {
@@ -2138,9 +2150,21 @@ int canned_packets(struct state *state)
                 }
                 last_time = recpkt.currtime;
 
-                sleep(wait_time);
+                tv.tv_sec = wait_time;
 
-                printf("\n");
+                FD_ZERO(&fds);
+                if (state->dspfd > 0)
+                        FD_SET(state->dspfd, &fds);
+
+                ret = select(100, &fds, NULL, NULL, &tv);
+                if (ret == -1) {
+                        perror("select");
+                        if (errno == EBADF)
+                                break;
+                        continue;
+                } else if (ret > 0 && (FD_ISSET(state->dspfd, &fds)) ) {
+                        handle_display(state);
+                }
 
                 handle_ax25_pkt(state, &inbuf[1], bytes_read-1);
 
@@ -2216,7 +2240,6 @@ int main(int argc, char **argv)
                 state.ax25_srcaddr = state.mycall;
                 state.disp_idx = -1;
                 _ui_send(&state, "AI_CALLSIGN", "HELLO");
-
 
                 canned_packets(&state);
                 fap_cleanup();
