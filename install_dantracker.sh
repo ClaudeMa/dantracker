@@ -12,8 +12,7 @@
 #   /etc/tracker/aprs_tracker.ini
 #
 # @2013 - PA0ESH - revision 1st july 2013
-
-
+#
 # Color Codes
 Reset='\e[0m'
 Red='\e[31m'
@@ -23,6 +22,7 @@ YelRed='\e[31;43m' #Red/Yellow
 Blue='\e[34m'
 White='\e[37m'
 BluW='\e[37;44m'
+RevDate = "03072013"
 
 #Init
 FILE="/tmp/out.$$"
@@ -32,11 +32,9 @@ GREP="/bin/grep"
 if [[ $EUID -ne 0 ]]; then
    echo "This script must be run as root" 1>&2
    sudo su && /home/pi/test_install.sh
-
 fi
-# ...
 
-whiptail --title "Dantracker N7NIX branch installation" --yesno "This script will Install the Dantracker - N7NIX branch on the Raspberry Pi, inclusive Ax.25 \
+whiptail --title "Dantracker N7NIX branch installation - revdate:$RevDate" --yesno "This script will Install the Dantracker - N7NIX branch on the Raspberry Pi, inclusive Ax.25 \
                                    installation script by pa0esh - see www.pa0esh.nl  \
                                    Using parts of scripts written by k4gbb" --yes-button "Continue" --no-button "Abort"  10 70
 	exitstatus=$?
@@ -51,24 +49,26 @@ fi
 
 
 function firstroutine {
- echo "running Raspberry update & upgrade"
- # Update Package list
-  echo -e "${Green} Updating the Package List ${Reset}"
-  echo -e "\t${YelRed} This may take a while ${Reset}"
-  apt-get update -y > /dev/null
-  echo -e "${Green} Upgrading the Raspberry ${Reset}"
-  echo -e "\t${YelRed} This may take even longer ${Reset}"
-  apt-get dist-upgrade -y > /dev/null
-  echo -e "${Green} Upgrading Raspberry completed ${Reset}"
-  sleep 1
+
+echo "running Raspberry PI Debian Wheezy update & upgrade"
+# Update Package list
+echo -e "${Green} Updating the Package List ${Reset}"
+echo -e "\t${YelRed} This may take a while ${Reset}"
+apt-get update -y > /dev/null
+echo -e "${Green} Upgrading the Raspberry ${Reset}"
+echo -e "\t${YelRed} This may take even longer ${Reset}"
+apt-get dist-upgrade -y > /dev/null
+echo -e "${Green} Upgrading Raspberry completed ${Reset}"
+sleep 1
+# end of firstroutine
 }
 
 
-
 function secondroutine {
+
 whiptail --title "Ax.25 Install" \
---msgbox  "This script will Install Ax.25 for the Raspberry Pi
-     using official Ax.25 repository for debian wheezy
+--msgbox  "This script will Install Ax.25 for the Raspberry Pi \
+     using official Ax.25 repository for debian wheezy \
              to be used by Dantracker - N7NIX branch. 		 " 9 60
 
   if ! uid=0
@@ -76,16 +76,17 @@ whiptail --title "Ax.25 Install" \
   fi
 
 echo -e "\t \e[030;42m    Ax.25 is being installed, please wait... \t ${Reset}"
-apt-get install -y libax25 libax25-dev ax25-apps ax25-tools > /dev/null
+apt-get install -y libax25 libax25-dev ax25-apps ax25-tools python-serial > /dev/null
 
 # download start up files
 cd /etc/init.d
-wget -qrt3 http://www.pa0esh.nl/aprs/ax25 && chmod 755 ax25
+wget -qt3 http://www.pa0esh.nl/aprs/ax25 && chmod 755 ax25
 cd /etc/ax25
-wget -qrt3 http://www.pa0esh.nl/aprs/ax25-up
-wget -qrt3 http://www.pa0esh.nl/aprs/ax25-down
-wget -qrt3 http://www.pa0esh.nl/aprs/axports
-wget -qrt3 http://www.pa0esh.nl/aprs/ax25d.conf && chmod 755 ax*
+rm /etc/ax25/* > /dev/null
+wget -qt3 http://www.pa0esh.nl/aprs/ax25-up
+wget -qt3 http://www.pa0esh.nl/aprs/ax25-down
+wget -qt3 http://www.pa0esh.nl/aprs/axports
+wget -qt3 http://www.pa0esh.nl/aprs/ax25d.conf && chmod 755 ax*
 cd /usr/sbin/
 #wget -qt3 http://www.pa0esh.nl/aprs/calibrate.esh && mv calibrate.esh calibrate
 #chmod 755  /usr/sbin/calibrate
@@ -123,59 +124,155 @@ fi
 echo -e "${Green} This is the new axports file ${Reset}"
 echo -e "${Green} You can always modify /etc/ax25/axports manually ! ${Reset}"
 cat /etc/ax25/axports
+echo -e "${Green} And here are the USB ports for ax25 (and Dantracker) ${Reset}"
+/home/pi/detect_gps.py
 rm $result
-# (End of AX25Script - thanks to k4gbb)
+sleep 1
+# (End of second routine - AX25Script - thanks to k4gbb)
 }
 
 function thirdroutine {
-echo -e "${Green} Hostapd is now being installed. ${Reset}"
-apt-get install -y hostapd
-echo -e "${Green} dnsmasq is now being installed. ${Reset}"
-apt-get install -y dnsmasq
 
-# changing the various config files
-# check if files have been updated already
+whiptail --title "ACCESS POINT installation" \
+--msgbox  "This script will hostapd & dnsmasq for the Raspberry Pi \
+	to make it act as an AP in your mobile environment \
+	for use by Dantracker - N7NIX branch. 		 " 9 60
 
-if grep -Fq "Dantracker" /etc/dnsmasq.conf
+  if ! uid=0
+   then sudo su
+  fi
+echo -e "${YelRed} cleaning up the old installation - please wait... ${Reset}"
+apt-get autoremove -y > /dev/null
+apt-get remove -y dnsmasq hostapd rng-tools > /dev/null
+file="/etc/hostapd/hostapd.conf"
+if [ -f "$file" ]
 then
-    whiptail --title "Hostapd & dnsmasq configuration" --msgbox "It seems that you have configured the files for dnsmasq already. \n\
-Please change /etc/dnsmasq.conf manually with an editor if necessary" 10 78
+	rm $file
 else
-    whiptail --title "Hostapd & dnsmasq configuration" --msgbox "The script will now configure hostapd and dnsmasq \n\
-The ip adress for the wlan0 will be 192.168.42.1 \n\
-with netmask 255.255.255.0 '\n\
-/etc/default/ifplugd will be modified as well. \n\
-wlan0 will be given ip adres 192.168.42.1." 10 78
-
-# Configuration file for dnsmasq.
-sed -i.bak 's/# Configuration file for dnsmasq./# Configuration file for dnsmasq. - Dantracker' /etc/dnsmasq.conf
-sed -i 's/#interface=/interface=wlan0/1' /etc/dnsmasq.conf
-
-sed -i 's/#dhcp-range=192.168.0.50,192.168.0.150,12h/dhcp-range=wlan0,192.168.42.50,192.168.42.150,12h/1' /etc/dnsmasq.conf
-sed -i 's/#listen-address=/listen-address=127.0.0.1/1' /etc/dnsmasq.conf
-/etc/init.d/dnsmasq restart
-ifdown wlan0 > /dev/null
-ifconfig wlan0 192.168.42.1 >/dev/null
+echo -e "${YelRed} $file not found - assuming clean installation.. ${Reset}"
 fi
 
-sed -i.bak 's/INTERFACES="auto"/INTERFACES="eth0"/1' /etc/default/ifplugd
-sed -i 's/HOTPLUG_INTERFACES="all"/HOTPLUG_INTERFACES="none"/1' /etc/default/ifplugd
+file="/etc/default/hostapd"
+if [ -f "$file" ]
+then
+	rm $file
+else
+echo -e "${YelRed} $file not found - assuming clean installation.. ${Reset}"
+fi
+
+echo -e "${YelRed} Updating the package list before installation dnsmasq & hostapd - please wait... ${Reset}"
+apt-get update > /dev/null
+ifdown wlan0
+ifconfig wlan0 192.168.42.1
+echo -e "${Green} dnsmasq is now being installed. ${Reset}"
+apt-get install -y dnsmasq > /dev/null
+echo -e "${Green} hostapd is now being installed. ${Reset}"
+apt-get install -y hostapd > /dev/null
+echo -e "${Green} haveged is now being installed. ${Reset}"
+apt-get install -y haveged > /dev/null
+update-rc.d haveged defaults > /dev/null
+cat /proc/sys/kernel/random/entropy_avail
+# changing the various config files
+
+cd /etc/hostapd/
+
+# check if /etc/dnsmasq.conf exists and has been configured
+if grep -Fq "Dantracker" /etc/dnsmasq.conf ; then
+    whiptail --title "dnsmasq configuration" --msgbox "It seems that you have configured the config file for dnsmasq already. \n\
+Please update the configuration manually with an editor if necessary" 10 78
+	else
+    whiptail --title "dnsmasq configuration" --msgbox "The script will now configure dnsmasq with the following specs\n\
+The static ip adress for wlan0 will be 192.168.42.1\n\
+with netmask 255.255.255.0\n\
+/etc/default/ifplugd will be modified as well to avoid losing the ip adres during boot.." 10 78
+	# updating configuration file for dnsmasq.
+	sed -i.bak 's/# Configuration file for dnsmasq./# Configuration file for dnsmasq. - Dantracker/1' /etc/dnsmasq.conf
+	sed -i 's/#interface=/interface=wlan0/1' /etc/dnsmasq.conf
+	sed -i 's/#dhcp-range=192.168.0.50,192.168.0.150,12h/dhcp-range=wlan0,192.168.42.50,192.168.42.150,12h/1' /etc/dnsmasq.conf
+	sed -i 's/#listen-address=/listen-address=127.0.0.1/1' /etc/dnsmasq.conf
+	# updating configuration file for /etc/default/ifplugd
+	sed -i.bak 's/INTERFACES="auto"/INTERFACES="eth0"/1' /etc/default/ifplugd
+	sed -i 's/HOTPLUG_INTERFACES="all"/HOTPLUG_INTERFACES="none"/1' /etc/default/ifplugd
+fi
 
 if grep -Fq "Dantracker" /etc/network/interfaces
-then
-    whiptail --title "Hostapd & dnsmasq configuration" --msgbox "It seems that you have configured the files for /etc/network/interfaces already. \n\
-Please change /etc/dnsmasq.conf manually with an editor if necessary" 10 78
-else
-	sed -i.bak "s/auto lo/#Configuration file for Dantracker \nauto lo/1" /etc/network/interfaces
-	sed -i 's/iface wlan0 inet manual/#iface wlan0 inet manual/1' /etc/network/interfaces
-	sed -i 's/iface default inet dhcp/#iface default inet dhcp/1' /etc/network/interfaces
-	sed -i 's/wpa-roam/#wpa-roam/1' /etc/network/interfaces
-	sed -i "s/allow-hotplug wlan0/allow-hotplug wlan0 \niface wlan0 inet static \naddress 192.168.42.1 \nnetmask 255.255.255.0 \n/" /etc/network/interfaces
+	then
+    whiptail --title "Network configuration" --msgbox "It seems that you have configured the files for /etc/network/interfaces already. \n\
+Please change  /etc/network/interfaces manually with an editor if necessary" 10 78
+	else
+		sed -i.bak "s/auto lo/#Configuration file for Dantracker \nauto lo/1" /etc/network/interfaces
+		sed -i 's/iface wlan0 inet manual/#iface wlan0 inet manual/1' /etc/network/interfaces
+		sed -i 's/iface default inet dhcp/#iface default inet dhcp\nup iptables-restore < /etc/iptables.ipv4.nat/1' /etc/network/interfaces
+		sed -i 's/wpa-roam/#wpa-roam/1' /etc/network/interfaces
+		sed -i "s/allow-hotplug wlan0/allow-hotplug wlan0 \niface wlan0 inet static \naddress 192.168.42.1 \nnetmask 255.255.255.0 \n/" /etc/network/interfaces
+		sed -i.bak "s/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/1" /etc/sysctl.conf
+		sh -c "echo 1 > /proc/sys/net/ipv4/ip_forward"
+		iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+		iptables -A FORWARD -i eth0 -o wlan0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+		iptables -A FORWARD -i wlan0 -o eth0 -j ACCEPT
+		iptables -S
+		sh -c "iptables-save > /etc/iptables.ipv4.nat"
 fi
 
+#check if /etc/hostapd/hostapd.conf exists
+if [ -f /etc/hostapd/hostapd.conf ]
+	then
+    whiptail --title "hostapd configuration" --msgbox "It seems that you have configured the config file for hostapd already. \n\
+Please update the configuration manually with an editor if necessary" 10 78
+	else
+    whiptail --title "hostapd configuration" --msgbox "The script will now configure hostapd with the following specs\n\
+The name of the Wi-Fi network will be     : APRS\n\
+The password of the Wi-Fi networj will be : hamradioaprs\n\
+/etc/default/ifplugd will be modified as well to avoid lossing the ip adres during boot.." 10 78
+	wget -qt3 http://www.pa0esh.nl/aprs/hostapd.conf
+	chmod 755 /etc/hostapd/hostapd.conf
+	echo -e "${YelRed} hostapd.conf created. ${Reset}"
+fi
 
-echo -e "${Green} Hostapd and dnsmasq now configured and running. ${Reset}"
+#check if /etc/default/hostapd exists
+echo -e "${Green} Checking existence of /etc/default/hostapd ${Reset}"
+cd /etc/default/
+if [ -f /etc/default/hostapd ]
+then
+	if grep -Fq "Dantracker" /etc/default/hostapd
+	then
+    whiptail --title "hostapd configuration" --msgbox "It seems that you have configured the config file /etc/default/hostapd already. \n\
+Please update the configuration manually with an editor if necessary" 10 78
+	fi
+
+else
+	wget -qt3 http://www.pa0esh.nl/aprs/hostapd
+	chmod 755 /etc/default/hostapd
+	echo -e "${YelRed} /etc/default/hostapd created. ${Reset}"
+fi
+
+if grep -Fq "Dantracker" /etc/default/hostapd
+	then
+    whiptail --title "hostapd configuration" --msgbox "It seems that you have configured the config file /etc/default/hostapd already. \n\
+Please update the configuration manually with an editor if necessary" 10 78
+	else
+    whiptail --title "hostapd configuration" --msgbox "The script will now configure /etc/default/hostapd with the following specs\n\
+path to hostapd.conf     : /etc/hostapd/hostapd.conf" 10 78
+	sed -i.bak 's/# Defaults for hostapd initscript/# Defaults for hostapd initscript - Dantracker/1' /etc/default/hostapd
+    sed -i 's/#DAEMON_CONF=""/DAEMON_CONF="\/etc\/hostapd\/hostapd.conf"/1' /etc/default/hostapd
+	echo -e "${Green} /etc/default/hostapd for APRS acces created. ${Reset}"
+fi
+
+cd /home/pi >/dev/null
+echo -e "${Green} Starting the hostapd service manually - look for errors  -press Ctrl-C to end and continue. ${Reset}"
+/usr/sbin/hostapd /etc/hostapd/hostapd.conf
+echo -e "${Green} Starting the hostapd & dnsmasq services and enable autostart..... ${Reset}"
+ifconfig wlan0 192.168.42.1
+service hostapd start
+service dnsmasq start
+update-rc.d hostapd enable
+update-rc.d dnsmasq enable
+
+echo -e "${Green} If no errors were shown, hostapd and dnsmasq now configured and running. ${Reset}"
+# (End of dantracker install script)
+# (End of # end of thirdroutine)
 }
+
 
 function fourthroutine {
 
@@ -236,6 +333,9 @@ npm -g install connect
 cd /home/pi/dantracker/
 touch ./revision
 make
+# correction of small error in spy.html
+sed -i.bak 's/src="jQuery/src="jquery/1' /home/pi/dantracker/webapp/spy.html
+
 ./install.sh > /dev/null
 
 cp *.js /usr/share/dantracker/
@@ -266,14 +366,15 @@ else
 fi
 /home/pi/dantracker/detect_gps.py
 echo -e "${BluW} Now reboot, and change the /home/pi/dantracker/aprs.ini, /etc/tracker/aprs_spy.ini and aprs_tracker.ini files ${Reset}"
-echo -e "${BluW} Many thanks to all that have helped, especially Basil N7NIX. ${Reset}"
+echo -e "${BluW} Many thanks to all that have helped, especially Basil N7NIX and k4gbb from whom I borrowed some code. ${Reset}"
 echo -e "${Green} Here are your usb - serial ports setting for gps and radio. ${Reset}"
 
 echo -e "${BluW} For more info: http://www.pa0esh.nl/index.php?option=com_content&view=article&id=89&Itemid=106 ${Reset}"
+# (End of fourthroutine)
 }
 
 
-whiptail --title "Dantracker installation choices." --checklist --separate-output "Make your choice:" 12 50 4 \
+whiptail --title "Dantracker N7NIX installation choices." --checklist --separate-output "Make your choice:" 12 50 4 \
 "Raspberry" "update & Upgrade" on \
 "Ax.25" " installation" on \
 "AP" "Access Point installation" off \
@@ -285,7 +386,6 @@ else
     echo -e "${YelRed} Installation aborted. ${Reset}"
     exit
 fi
-
 
 while read choice
 do

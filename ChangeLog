@@ -1,7 +1,15 @@
+Wed Jul  3 10:39:05 PDT 2013  Basil Gunn <basil@pacabunga.com>
+
+    * Changes from Erik PA0ESH for Raspberry Pi install script.
+    * Configure true access point automatically.
+    * Include the generation of random data using haveged
+       to fix wpa2 problem.
+      File modified: install_dantracker.sh
+
 Tue Jul  2 09:21:33 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
-   * Add Raspberry Pi install script by Erik PA0ESH
-     File added: install_dantracker.sh
+    * Add Raspberry Pi install script by Erik PA0ESH
+      File added: install_dantracker.sh
 
 Sun Jun  2 13:37:59 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
