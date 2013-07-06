@@ -1,3 +1,14 @@
+Sat Jul  6 10:52:27 PDT 2013  Basil Gunn <basil@pacabunga.com>
+
+    * Minimal install script now creates jquery directory if it
+      doesn't exist.
+    * Comments added.
+      File modified: install.sh
+
+    * Changes from Erik PA0ESH for Raspberry Pi install script.
+      Many additions & fixes.
+      File modified: install_dantracker.sh
+
 Wed Jul  3 10:39:05 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
     * Changes from Erik PA0ESH for Raspberry Pi install script.
