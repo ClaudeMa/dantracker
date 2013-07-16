@@ -1,3 +1,4 @@
+/* -*- Mode: C; tab-width: 8;  indent-tabs-mode: nil; c-basic-offset: 8; c-brace-offset: -8; c-argdecl-indent: 8 -*- */
 /* Copyright 2012 Dan Smith <dsmith@danplanet.com> */
 
 #include <stdio.h>
@@ -115,8 +116,10 @@ int serial_open(const char *device, int baudrate, int hwflow)
 	int ret;
 	struct stat s;
 
-	fd = open(device, O_RDWR);
-	if (fd < 0)
+        printf("Opening serial device %s, hang check ... ", device);
+        fd = open(device, O_RDWR);
+        printf("return 0x%02x\n", fd);
+        if (fd < 0)
 		return fd;
 
 	fstat(fd, &s);
