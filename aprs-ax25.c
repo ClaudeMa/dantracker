@@ -324,9 +324,9 @@ bool send_ax25_beacon(struct state *state, char *packet)
                 destcall[MIC_E_DEST_ADDR_LEN - 1]='\0';
                 sprintf(destpath, "%s via %s", destcall, state->conf.digi_path);
                 aprspath = destpath;
-                buf[6] = APRS_DATATYPE_CURRENT_MIC_E_DATA;
+                buf[MIC_E_DEST_ADDR_LEN-1] = APRS_DATATYPE_CURRENT_MIC_E_DATA;
                 pkt_start = &buf[MIC_E_DEST_ADDR_LEN - 1];
-                len -= 7;
+                len -= (MIC_E_DEST_ADDR_LEN - 1);
         }
         memset((char *)&sockaddr_ax25_dest, 0, sizeof(sockaddr_ax25_dest));
 

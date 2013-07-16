@@ -1,4 +1,4 @@
-/* -*- Mode: C; tab-width: 8;  indent-tabs-mode: nil; c-basic-offs_t: 8; c-brace-offset: -8; c-argdecl-indent: 8 -*- */
+/* -*- Mode: C; tab-width: 8;  indent-tabs-mode: nil; c-basic-offset: 8; c-brace-offset: -8; c-argdecl-indent: 8 -*- */
 /* Copyright 2012 Dan Smith <dsmith@danplanet.com> */
 
 #define _GNU_SOURCE
@@ -1627,7 +1627,17 @@ char *make_mice_beacon(struct state *state)
         /* Course tens and units of degrees */
         crs_tud = ((int)mypos->course % 100) + 28;
 
-        /* Altitude, base-91 */
+        /* Mic_E altitude field follows,
+         * restricted to not start with one of:
+         *  `,', or 0x1d
+         *  so as not to be confused with telemetry data
+         *  3 (or 4) character altitude terminated with }
+         *  page 55 Aprs 1.0 spec.
+         */
+
+        /* Altitude, base-91
+         * xxx in meters relative to 10km below mean sea level
+         */
         atemp = mypos->alt + 10000;
         altitude[0] = 33 + (atemp / pow(91, 3));
         atemp = atemp % (int)pow(91, 3);
