@@ -18,6 +18,7 @@
 #include <sys/un.h>
 #include <netdb.h>
 #include <ctype.h>
+#include <time.h>
 #include <json/json.h>
 #include <netinet/if_ether.h> /* only for ETH_P_AX25, canned packets */
 
@@ -164,7 +165,7 @@ int _ui_send(struct state *state, const char *name, const char *value)
         if( *fd > 0) {
                 ret = ui_send(*fd, name, value);
                 if (ret < 0) {
-                        printf("%s:%s(): closing file descriptor %d due to error from ui_send()\n",
+                        printf("%s:%s(): closing file descriptor %d due to error\n",
                                __FILE__, __FUNCTION__, *fd);
 
                         close(*fd);
@@ -279,6 +280,17 @@ const char *format_altitude_agl(struct state *state, const char *format, double 
 {
         static char str[25];
         float _altitude = state->conf.metric_units ? FT_TO_M(ft) : ft;
+        char  *unit = state->conf.metric_units ? "m" : "FT";
+
+        snprintf(str, sizeof(str), format, _altitude, unit);
+
+        return str;
+}
+
+const char *format_altitude_gps(struct state *state, const char *format, double meters)
+{
+        static char str[25];
+        float _altitude = state->conf.metric_units ? meters :  M_TO_FT(meters);
         char  *unit = state->conf.metric_units ? "m" : "FT";
 
         snprintf(str, sizeof(str), format, _altitude, unit);
@@ -1162,7 +1174,7 @@ int handle_incoming_packet(struct state *state)
         return 0;
 }
 
-int parse_gps_string(struct state *state)
+int parse_gps_nmea_string(struct state *state)
 {
         char *str = state->gps_buffer;
 
@@ -1206,9 +1218,9 @@ int display_gps_info(struct state *state)
                 sprintf(buf, "%s %2s, Alt %s",
                           format_speed(state, "%.0f %s", KTS_TO_KPH(mypos->speed)),
                           direction(mypos->course),
-                          format_altitude(state, "%.0f %s", mypos->alt));
+                          format_altitude_gps(state, "%.0f %s", mypos->alt));
         } else {
-                sprintf(buf, "Stationary, Alt %s", format_altitude(state, "%.0f %s", mypos->alt));
+                sprintf(buf, "Stationary, Alt %s", format_altitude_gps(state, "%.0f %s", mypos->alt));
         }
         _ui_send(state, "G_SPD", buf);
 
@@ -1247,13 +1259,39 @@ int set_time(struct state *state)
                 return 1; /* Too recent */
         }
 
-        hour = (tstamp / 10000);
-        min = (tstamp / 100) % 100;
-        sec = tstamp % 100;
+        if(state->conf.gps_type_int == GPS_TYPE_GPSD) {
+                struct tm *pgmtime;
 
-        day = (dstamp / 10000);
-        mon = (dstamp / 100) % 100;
-        year = dstamp % 100;
+                pgmtime = gmtime(&tstamp);
+                hour = pgmtime->tm_hour;
+                min  = pgmtime->tm_min;
+                sec  = pgmtime->tm_sec;
+                day  = pgmtime->tm_mday;
+                mon  = pgmtime->tm_mon;
+                year = pgmtime->tm_year;
+
+                /* debug only */
+                snprintf(timestr, sizeof(timestr),
+                         "date -u %02i%02i%02i%02i20%02i.%02i",
+                         mon, day,
+                         hour, min,
+                         year, sec);
+
+                printf("Setting system time: %s\n", timestr);
+
+        } else if(state->conf.gps_type_int == GPS_TYPE_SERIAL) {
+                hour = (tstamp / 10000);
+                min = (tstamp / 100) % 100;
+                sec = tstamp % 100;
+
+                day = (dstamp / 10000);
+                mon = (dstamp / 100) % 100;
+                year = dstamp % 100;
+        } else {
+
+                fprintf(stderr, "%s: gps device not configured\n", __FUNCTION__);
+                return -1;
+        }
 
         snprintf(timestr, sizeof(timestr),
                  "date -u %02i%02i%02i%02i20%02i.%02i",
@@ -1262,7 +1300,7 @@ int set_time(struct state *state)
                  year, sec);
 
         ret = system(timestr);
-        printf("Setting date %s: %s\n", timestr, ret == 0 ? "OK" : "FAIL");
+        printf("Setting %s: %s\n", timestr, ret == 0 ? "OK" : "FAIL");
         state->last_time_set = time(NULL);
 
         return 0;
@@ -1274,31 +1312,137 @@ int handle_gps_data(struct state *state)
         int ret;
         char *cr;
 
-        ret = read(state->gpsfd, buf, 32);
-        buf[ret] = 0; /* Safe because size is +1 */
+        switch(state->conf.gps_type_int) {
 
-        if (ret < 0) {
-                perror("gps");
-                return -errno;
-        } else if (ret == 0)
-                return 0;
+                /* Serial port gets GPS data in NMEA format */
+                case GPS_TYPE_SERIAL:
+                        ret = read(state->gpsfd, buf, 32);
+                        buf[ret] = 0; /* Safe because size is +1 */
 
-        if (state->gps_idx + ret > sizeof(state->gps_buffer)) {
-                printf("Clearing overrun buffer\n");
-                state->gps_idx = 0;
-        }
+                        if (ret < 0) {
+                                perror("gps");
+                                return -errno;
+                        } else if (ret == 0)
+                                return 0;
 
-        cr = strchr(buf, '\r');
-        if (cr) {
-                *cr = 0;
-                strcpy(&state->gps_buffer[state->gps_idx], buf);
-                if (parse_gps_string(state))
-                        state->last_gps_data = time(NULL);
-                strcpy(state->gps_buffer, cr+1);
-                state->gps_idx = strlen(state->gps_buffer);
-        } else {
-                memcpy(&state->gps_buffer[state->gps_idx], buf, ret);
-                state->gps_idx += ret;
+                        if (state->gps_idx + ret > sizeof(state->gps_buffer)) {
+                                printf("Clearing overrun buffer\n");
+                                state->gps_idx = 0;
+                        }
+
+                        cr = strchr(buf, '\r');
+                        if (cr) {
+                                *cr = 0;
+                                strcpy(&state->gps_buffer[state->gps_idx], buf);
+                                if (parse_gps_nmea_string(state))
+                                        state->last_gps_data = time(NULL);
+                                strcpy(state->gps_buffer, cr+1);
+                                state->gps_idx = strlen(state->gps_buffer);
+                        } else {
+                                memcpy(&state->gps_buffer[state->gps_idx], buf, ret);
+                                state->gps_idx += ret;
+                        }
+
+                        break;
+                        /* GPSD gets data in some binary format */
+                case GPS_TYPE_GPSD:
+                {
+                        struct posit *mypos;
+                        struct gps_data_t *pgpsd= &state->gpsdata;
+                        time_t curtime;
+
+
+                        if (gps_read(&state->gpsdata) == -1) {
+                                fprintf(stderr, "%s: socket error 4", __FUNCTION__);
+                                fprintf(stderr, ", is: %s\n", (errno == 0) ? "GPS_GONE" : "GPS_ERROR");
+                                return -errno;
+                        }
+
+                        if(isnan(pgpsd->fix.time) == 0) {
+                                curtime = pgpsd->fix.time;
+                        } else {
+                                curtime = time(NULL);
+                        }
+#ifdef DEBUG_GPS
+                        {
+                                struct tm *loctime;
+                                char timestr[256];
+
+                                loctime = gmtime(&curtime);
+                                strftime(timestr, 256, "%a %b %d %H:%M:%S %Y", loctime);
+
+                                printf("%s mode: %d, sat: %d, lat: %f %c, long: %f %c, track: %f, speed: %f, ",
+                                       timestr,
+                                       pgpsd->fix.mode,
+                                       pgpsd->satellites_visible,
+                                       pgpsd->fix.latitude,  (pgpsd->fix.latitude < 0) ? 'S' : 'N',
+                                       pgpsd->fix.longitude,  (pgpsd->fix.longitude < 0) ? 'W' : 'E',
+                                       pgpsd->fix.track,
+                                       pgpsd->fix.speed
+                                      );
+                                if( pgpsd->fix.mode >= 3) {
+                                        printf("alt: %f, climb: %f",
+                                               pgpsd->fix.altitude,
+                                               pgpsd->fix.climb);
+                                }
+                                printf("\n");
+                        }
+#endif
+                        /* Fill in the position struct posit */
+                        state->mypos_idx = (state->mypos_idx + 1) % KEEP_POSITS;
+                        mypos = MYPOS(state);
+                        /* NMEA GPGAA sentence breaks time into 2 items:
+                         * time: mmhhss.xxx (xxx = millisecnds)
+                         * dtime: ddmmyy
+                         *
+                         * binary data has one double containing Unix time in seconds with fractional part
+                         */
+                        mypos->dstamp = 0;
+                        mypos->tstamp = curtime;
+                        mypos->lat = pgpsd->fix.latitude;
+                        mypos->lon = pgpsd->fix.longitude;
+                        mypos->alt = pgpsd->fix.altitude;
+                        mypos->course = pgpsd->fix.track;
+                        mypos->speed = pgpsd->fix.speed;
+                        /* Map binary mode of gps fix to
+                         * NMEA GPGGA sentence, fix qualitiy
+                         * binary mode of fix defines:
+                         * MODE_NOT_SEEN	0	mode update not seen yet
+                         * MODE_NO_FIX	1	none
+                         * MODE_2D  	2	good for latitude/longitude
+                         * MODE_3D  	3	good for altitude/climb too
+                         *
+                         * NMEA GPGGA defines:
+                         * 0 = invalid
+                         * 1 = GPS fix
+                         * 2 = differential GPS fix
+                         */
+                        switch(pgpsd->fix.mode) {
+                                case 0:
+                                case 1:
+                                        mypos->qual = 0;
+                                        break;
+                                case 2:
+                                        mypos->qual = 1;
+                                        break;
+                                case 3:
+                                        mypos->qual = 2;
+                                        break;
+                                default:
+                                        mypos->qual = 0;
+                                        break;
+                        }
+                        mypos->sats = pgpsd->satellites_visible;
+                }
+                break;
+                case GPS_TYPE_FAKE:
+                        fake_gps_data(state);
+                        break;
+
+                default:
+                        fprintf(stderr, "%s: gps device not configured\n", __FUNCTION__);
+                        return -1;
+                        break;
         }
 
         if (MYPOS(state)->speed > 0)
@@ -1961,6 +2105,8 @@ int beacon(struct state *state)
                 return 0;
 
         if (MYPOS(state)->speed > 5) {
+                pr_debug("Sending mic-e beacon\n");
+
                 /* Send a short MIC-E position beacon */
                 packet = make_mice_beacon(state);
                 ret = send_beacon(state, packet);
@@ -2047,38 +2193,65 @@ int fake_gps_data(struct state *state)
         return 0;
 }
 
-
-int handle_ax25_pkt(struct state *state, unsigned char *rxbuf, int size)
+int gps_init(struct state *state)
 {
-        char packet[512];
-        unsigned int len = sizeof(packet);
-        struct sockaddr sa;
-        int ret;
+        state->gpsfd = -1;
 
-        strcpy(sa.sa_data, "File");
+        switch(state->conf.gps_type_int) {
+                case GPS_TYPE_SERIAL:
+                        if(state->debug.verbose_level > 2) {
+                                printf("%s: serial\n", __FUNCTION__);
+                        }
+                        if (state->conf.gps) { /* check for a serial device from config */
+                                state->gpsfd = serial_open(state->conf.gps, state->conf.gps_rate, 0);
+                                if (state->gpsfd < 0) {
+                                        perror(state->conf.gps);
+                                        return(-1);
+                                }
+                        } else {
+                                fprintf(stderr, "GPS serial device choosen but no device specified\n");
+                                return(-1);
+                        }
+                        break;
 
-        if (packet_qualify(state, &sa, rxbuf, size)) {
+                case GPS_TYPE_GPSD:
+                        if(state->debug.verbose_level > 2) {
+                                printf("%s: GPSD\n", __FUNCTION__);
+                        }
 
-                memset(packet, 0, len);
+                        if(gps_open("localhost", "2947", &state->gpsdata)<0){
+                                fprintf(stderr,"Could not connect to GPSd\n");
+                                return(-1);
+                        }
+                        if (state->conf.gps == NULL) { /* check for a serial device from config */
+                                fprintf(stderr, "GPS no device specified\n");
+                                return(-1);
+                        }
+                        state->gpsfd = state->gpsdata.gps_fd;
 
-                ret = fap_ax25_to_tnc2((char *)rxbuf, size, packet, &len);
-
-                if (ret) {
-                        printf("[%d] - %s\n", size, packet);
-
-                } else {
-                        printf("************************\n");
-                        fap_conversion_debug((char *)rxbuf, packet, len);
-                        return -1;
-                }
+                        /* register for updates */
+                        if(gps_stream(&state->gpsdata, WATCH_ENABLE | WATCH_DEVICE, state->conf.gps) == -1) {
+                                perror("gps_stream()");
+                                return(-1);
+                        }
+                        break;
+                case GPS_TYPE_FAKE:
+                        if(state->debug.verbose_level > 2) {
+                                printf("%s: fake\n", __FUNCTION__);
+                        }
+                        fake_gps_data(state);
+                        break;
+                default:
+                        fprintf(stderr, "gps type %s unhandled\n", state->conf.gps_type);
+                        state->conf.gps_type_int = GPS_TYPE_UNDEFINED;
+                        return (-1);
+                        break;
         }
-
-        parse_incoming_packet(state, packet, len, 1);
-        return 0;
+        return(0);
 }
 
 /*
- * For demo or debug replay packets previously saved to a file
+ * For Demo or debug replay packets previously saved to a file
  */
 int canned_packets(struct state *state)
 {
@@ -2091,6 +2264,7 @@ int canned_packets(struct state *state)
         time_t last_time, wait_time;
         struct sockaddr sa;
         FILE *fsrecpkt;
+        int *uifd = &state->dspfd;
         fd_set fds;
         struct timeval tv = {1, 0};
         int ret;
@@ -2100,6 +2274,10 @@ int canned_packets(struct state *state)
         if (fsrecpkt == NULL) {
                 perror(state->debug.playback_pkt_filename);
                 return errno;
+        }
+
+        if(*uifd <= 0) {
+                *uifd=ui_connect(state);
         }
 
         printf("Playing back packets from file %s\n", state->debug.playback_pkt_filename);
@@ -2119,13 +2297,19 @@ int canned_packets(struct state *state)
         while(bytes_read > 0) {
                 if ((bytes_read = fread(&recpkt, sizeof(recpkt_t), 1, fsrecpkt)) != 1) {
                         if(bytes_read == 0) {
-                                printf("Finished reading all %d packets, %zu bytes\n",
+                                printf("\nFinished reading all %d packets, %zu bytes\n\n",
                                        cnt_pkts, cnt_bytes + cnt_pkts*sizeof(recpkt_t));
-                                break;
+                                /* continuously display packets, so rewind & continue */
+                                rewind(fsrecpkt);
+                                if ((bytes_read = fread(&recpkt, sizeof(recpkt_t), 1, fsrecpkt)) != 1) {
+                                        printf("Failed to rewind file, exiting\n");
+                                        break;
+                                }
+                        }  else {
+                                fprintf(stderr, "%s: Error reading file: 0x%02x %s %s\n",
+                                          __FUNCTION__, errno, strerror(errno), state->debug.playback_pkt_filename);
+                                return errno;
                         }
-                        fprintf(stderr, "%s: Error reading file: 0x%02x %s %s\n",
-                                  __FUNCTION__, errno, strerror(errno), state->debug.playback_pkt_filename);
-                        return errno;
                 }
                 pkt_size = recpkt.size;
 
@@ -2139,20 +2323,21 @@ int canned_packets(struct state *state)
                 cnt_pkts++;
                 cnt_bytes += bytes_read;
 
-                printf("Pkt count %d, size %d, time %s ... ",
-                       cnt_pkts, pkt_size, time2str(&recpkt.currtime, 0));
+                if(state->debug.verbose_level > 3) {
+                        printf("Pkt count %d, size %d, time %s ... ",
+                               cnt_pkts, pkt_size, time2str((time_t *)&recpkt.currtime, 0));
+                }
 
                 /* pace the packets */
                 wait_time = recpkt.currtime - last_time;
 
-                printf("Wait %lu secs", wait_time);
+                if(state->debug.verbose_level > 3) {
+                        printf("Wait %lu secs", wait_time);
+                }
 
                 /* Pace packets quicker than reality */
                 if(wait_time > 0)
                         wait_time = wait_time / state->debug.playback_time_scale;
-
-                printf(", now %lu secs\n", wait_time);
-                fflush(stdout);
 
                 if(wait_time < 0 || wait_time > 5*60) {
                         printf("Wait time seems unreasonable %lu\n", wait_time);
@@ -2161,10 +2346,20 @@ int canned_packets(struct state *state)
                 last_time = recpkt.currtime;
 
                 tv.tv_sec = wait_time;
+                /* node server gets recursive interrupts intermittently.
+                 * - slow the pacing down to see if that helps */
+                tv.tv_usec = (wait_time == 0) ? 500 : 0;
+
+                if(state->debug.verbose_level > 3) {
+                        printf(", now %lu.%lu secs\n", tv.tv_sec, tv.tv_usec);
+                        fflush(stdout);
+                }
 
                 FD_ZERO(&fds);
                 if (state->dspfd > 0)
                         FD_SET(state->dspfd, &fds);
+                if (state->gpsfd > 0)
+                        FD_SET(state->gpsfd, &fds);
 
                 ret = select(100, &fds, NULL, NULL, &tv);
                 if (ret == -1) {
@@ -2172,15 +2367,20 @@ int canned_packets(struct state *state)
                         if (errno == EBADF)
                                 break;
                         continue;
-                } else if (ret > 0 && (FD_ISSET(state->dspfd, &fds)) ) {
-                        handle_display(state);
+                } else if (ret > 0) {
+                        if( (state->gpsfd != -1) && FD_ISSET(state->gpsfd, &fds)) {
+                                handle_gps_data(state);
+                                printf("g"); fflush(stdout);
+                        }
+                        if(FD_ISSET(state->dspfd, &fds)) {
+                                handle_display(state);
+                        }
                 }
+                handle_ax25_pkt(state, &sa, &inbuf[1], bytes_read-1);
 
-                handle_ax25_pkt(state, &inbuf[1], bytes_read-1);
-
-//                handle_display(state);
-        }
-        return 0;
+                //                handle_display(state);
+                }
+                return 0;
 }
 
 int main(int argc, char **argv)
@@ -2188,6 +2388,7 @@ int main(int argc, char **argv)
         int i;
         fd_set fds;
         struct state state;
+        bool bUpdateUI = true;
 
         memset(&state, 0, sizeof(state));
 
@@ -2210,6 +2411,9 @@ int main(int argc, char **argv)
                 exit(1);
         }
 
+        /* Force fap display on */
+        state.debug.display_fap_enable = true;
+
         /* If a hostname or ip address was supplied using the -d command
          * line argument then use AF_INET socket family.  Otherwise use
          * the AF_UNIX family with socket path parsed from ini file.
@@ -2220,8 +2424,8 @@ int main(int argc, char **argv)
                         exit(1);
                 }
         } else {
-                state.conf.display_to.sa_family = AF_UNIX;
-                strcpy(((struct sockaddr_un *)&state.conf.display_to)->sun_path,
+                state.conf.display_to.afinet.sa_family = AF_UNIX;
+                strcpy((&state.conf.display_to.afunix)->sun_path,
                        state.conf.ui_sock_path);
         }
 
@@ -2236,9 +2440,10 @@ int main(int argc, char **argv)
         for (i = 0; i < KEEP_PACKETS; i++)
                 state.recent[i] = NULL;
 
-        /* Init our static information before we might login to aprs-is below */
-        if (STREQ(state.conf.gps_type, "static"))
-                fake_gps_data(&state);
+        if(gps_init(&state) == -1) {
+                fprintf(stderr, "Failed to init gps, exiting");
+                exit(1);
+        }
 
         /*
          * Check if playback packets is enabled
@@ -2299,21 +2504,14 @@ int main(int argc, char **argv)
         } else {
                 state.tncfd = -1;
                 printf("WARNING: TNC %s is not configured.\n", state.conf.tnc_type);
+                exit(1);
         }
 
         if (STREQ(state.conf.tnc_type, "KISS")) {
                 handle_display_initkiss(&state);
         }
 
-        if (state.conf.gps && !STREQ(state.conf.gps_type, "static")) {
-                state.gpsfd = serial_open(state.conf.gps, state.conf.gps_rate, 0);
-                if (state.gpsfd < 0) {
-                        perror(state.conf.gps);
-                        exit(1);
-                }
-        } else
-                state.gpsfd = -1;
-
+        /* Test for any telemetry config'ed */
         if (state.conf.tel) {
                 state.telfd = serial_open(state.conf.tel, state.conf.tel_rate, 0);
                 if (state.telfd < 0) {
@@ -2351,9 +2549,6 @@ int main(int argc, char **argv)
                         }
                 }
 
-                if (STREQ(state.conf.gps_type, "static"))
-                        fake_gps_data(&state);
-
                 ret = select(100, &fds, NULL, NULL, &tv);
                 if (ret == -1) {
                         perror("select");
@@ -2361,16 +2556,21 @@ int main(int argc, char **argv)
                                 break;
                         continue;
                 } else if (ret > 0) {
-                        if (FD_ISSET(state.tncfd, &fds))
+                        if (FD_ISSET(state.tncfd, &fds)) {
                                 handle_incoming_packet(&state);
+                                bUpdateUI = true;
+                        }
                         if( (state.gpsfd != -1) && FD_ISSET(state.gpsfd, &fds)) {
                                 handle_gps_data(&state);
+                                bUpdateUI = true;
                         }
                         if( (state.telfd != -1) && FD_ISSET(state.telfd, &fds)) {
                                 handle_telemetry(&state);
+                                bUpdateUI = true;
                         }
-                        if (FD_ISSET(state.dspfd, &fds)) {
+                        if ((state.dspfd != -1) && FD_ISSET(state.dspfd, &fds)) {
                                 handle_display(&state);
+                                bUpdateUI = true;
                         }
                         if (state.outstanding_ack_timer_count > 0) {
                                 i = 0;
@@ -2382,11 +2582,22 @@ int main(int argc, char **argv)
                                         i++;
                                 }
                         }
-                } else {
+                        /* only update UI if something watched changes */
+                        if(bUpdateUI) {
+                                update_packets_ui(&state);
+                                bUpdateUI = false;
+                        }
+                }
+#if 0 /* WHY update display every second ? */
+                else {
                         /* Work to do if no other events */
                         update_packets_ui(&state);
                 }
-
+#endif
+                /* Using a fake gps? */
+                if(state.conf.gps_type_int == GPS_TYPE_FAKE) {
+                        handle_gps_data(&state);
+                }
                 beacon(&state);
                 fflush(NULL);
         }

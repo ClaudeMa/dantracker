@@ -3,7 +3,10 @@
  */
 function htmlEntities(str) {
         return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+			.replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+			.replace(/(\r\n|\n|\r)/g, '<br/>')
+			.replace(/\s/g, '&nbsp;');
+// .replace(/\s+/g, '.');
 }
 
 $(function () {
@@ -29,7 +32,7 @@ $(function () {
 	// Interval clock Id
         var clockID = 0;
         // maximum number of APRS message to display in content DIV
-        var maxMsgItems = 200;
+        var maxMsgItems = 1000;
 
         /* Address of machine hosting aprs-ax25 & node.js */
         var WebIpSock="1348";
@@ -158,7 +161,7 @@ $(function () {
 	setInterval(function() {
 		if (connection.readyState !== 1) {
 			status.text('Error');
-			input.attr('disabled', 'disabled').val('Unable to comminucate '
+			input.attr('disabled', 'disabled').val('Unable to communicate '
 				+ 'with the WebSocket server.');
 		}
 	}, 3000);

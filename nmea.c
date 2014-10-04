@@ -61,6 +61,7 @@ int parse_gga(struct posit *mypos, char *str)
 
 		switch (num) {
 		case 1:
+			/* Will truncate millisecond portion of string */
 			mypos->tstamp = atoi(str);
 			break;
 		case 2:
@@ -96,6 +97,9 @@ int parse_gga(struct posit *mypos, char *str)
 	return 1;
 }
 
+/*
+ *   $GPRMC - Recommended minimum specific GPS/Transit data
+ */
 int parse_rmc(struct posit *mypos, char *str)
 {
 	int num = 0;

@@ -9,18 +9,43 @@ process.title = 'spy-server';
 // Install node modules globally npm -g install <module_name>
 var global_module_dir='/usr/local/lib/node_modules/';
 
+/**
+ * Global variables
+ */
+// list of currently connected clients (users)
+var spyClients = [];
+
+// websocket and http servers
+var webSocketServer = require(global_module_dir + 'websocket').server;
+var http = require('http');
+var events = require("events");
 var fs = require('fs');
 var mod_ctype = require(global_module_dir + 'ctype');
 var iniparser = require(global_module_dir + 'iniparser');
 
 // *** Network socket server
 var net = require('net');
-var NETHOST = '127.0.0.1';
-var NETPORT = 9123;
+var NETHOST;
+var NETPORT;
 var UNIXPORT;
 
 var HTMLPORT        // HTML server
 var webSocketPort;  // Web socket server
+
+/* Keep a history of messages */
+var spy_totMsg = 0;
+var spy_maxMsgStore = 25;
+var spy_Message = [];
+
+/* Refresh browser with history of stored messages */
+function refreshBrowser(clientIndex)
+{
+	var msgRefreshCnt = (spy_totMsg < spy_maxMsgStore ? spy_totMsg : spy_maxMsgStore);
+
+	for(var i=0; i < msgRefreshCnt; i++) {
+		spyClients[clientIndex].sendUTF(spy_Message[i]);
+	}
+}
 
 // parse command line for an ini file name
 var ini_file='./aprs.ini';
@@ -43,14 +68,16 @@ iniparser.parse(ini_file, function(err, data) {
                 console.log('Error: %s, failed to read %s', err.code, err.path);
                 return;
         }
-        /*
-         * Dump all the ini file parameters
+	console.log('Using ini file: ' + ini_file);
+	/*
+         * Uncomment next 3 lines to dump all the ini file parameters
          */
 //        var util = require('util');
 //        var ds = util.inspect(data);
 //        console.log('iniparse test, ui_net: ' + ds);
+
         webSocketPort = data.ui_net.websock_port;
-        if( data.ui_net.webSocketPort === 'undefined' ) {
+        if( data.ui_net.websock_port === 'undefined' ) {
                 console.log('ini parse error: No web socket port defined, exiting');
                 return;
         }
@@ -61,46 +88,39 @@ iniparser.parse(ini_file, function(err, data) {
                 return;
         }
 
-        if( data.ui_net.unix_socket != undefined ) {
+	NETHOST = data.ui_net.sock_hostname;
+	NETPORT = data.ui_net.sock_port;
+
+	if( data.ui_net.unix_socket != undefined ) {
                 UNIXPORT = data.ui_net.unix_socket;
                 NETPORT = UNIXPORT;
         }
 
+	console.log("Connections: websocket port: " + webSocketPort + '  Net Host: ' + NETHOST + ' port: ' + NETPORT);
+
 var TCP_BUFFER_SIZE = Math.pow(2,16);
-
-
-/**
- * Global variables
- */
-// list of currently connected clients (users)
-var spyClients = [];
-
-// websocket and http servers
-var webSocketServer = require(global_module_dir + 'websocket').server;
-var http = require('http');
-var events = require("events");
-
 var spy_emitter = new events.EventEmitter();
 
-/**
- * Helper function for escaping spy content
- */
-function htmlEntities(str) {
-        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+if( UNIXPORT != undefined ) {
+	fs.unlink(UNIXPORT, function(err) {
+		if (err) {
+			console.log('Will create UI Unix socket:' + UNIXPORT );
+		} else {
+			console.log('Successfully deleted UI Unix sockect:' + UNIXPORT );
+		};
+	});
 }
-
-fs.unlink(UNIXPORT, function(err) {
-        if (err) {
-                console.log('Will create Unix socket:' + UNIXPORT );
-        };
-});
 
 /**
   * HTTP server
  **/
 var server = http.createServer(function(request, response) {
+	if (err) {
+		console.log('Error creating HTTP server: %s', err.code);
+		return;
+	}
     // Not important for us. We're writing WebSocket server, not HTTP server
+	console.log("HTTP Server created");
 });
 server.listen(webSocketPort, function() {
 	console.log((new Date()) + " WebSocket Server is listening on port " + webSocketPort);
@@ -110,13 +130,18 @@ spy_emitter.on("spy_display", function(message) {
 
         if(spyClients[0] !== undefined && spyClients.length !== undefined) {
 
-                console.log('clients[' + spyClients.length + '] ' + 'message: ' + message);
+                console.log('clients[' + spyClients.length + '] ' + ' history[' + spy_Message.length + '] ' + 'message: ' + message );
 
                 for (var i=0; i < spyClients.length; i++) {
 //                        console.log('spy_emitter: sending to ' +  i + ' total: '+ spyClients.length);
                         spyClients[i].sendUTF(message);
 
                 }
+		/* Save spy display messages */
+		spy_totMsg++;
+		if (spy_totMsg > spy_maxMsgStore)
+			spy_Message.shift();
+		spy_Message.push(message);
         }
 });
 
@@ -135,16 +160,16 @@ var wsServer = new webSocketServer({
 // tries to connect to the WebSocket server
 wsServer.on('request', function(request) {
 
-	/* accept connection - you should check 'request.origin' to make sure that
+	/* accept connection
 	 * client is connecting from your website
 	 * (http://en.wikipedia.org/wiki/Same_origin_policy)
 	 */
 	var connection = request.accept(null, request.origin);
 	// we need to know client index to remove them on 'close' event
         var index = spyClients.push(connection) - 1;
-        var curIndex =0;
 
         console.log((new Date()) + ' Connection from ' + request.origin + ', index: ' + index);
+	refreshBrowser(index);
 
         /* This code is not used
          * No input from spy page is expected
@@ -161,8 +186,8 @@ wsServer.on('request', function(request) {
 
         // user disconnected
         connection.on('close', function(connection) {
-                console.log((new Date()) + " Peer "
-                            + connection.remoteAddress + " disconnected.");
+                console.log((new Date()) + " Connection close: Peer "
+                            + request.origin + " disconnected for index: " + index);
                 // remove user from the list of connected clients
                 spyClients.splice(index, 1);
         });
@@ -179,7 +204,7 @@ net.createServer(function(sock) {
 
 
 	// We have a connection - a socket object is assigned to the connection automatically
-        console.log('CONNECTED');
+	console.log('UI NET Socket CONNECTED: ' + sock.remoteAddress +':'+ sock.remotePort);
 
 	// To buffer tcp data see:
 	// http://stackoverflow.com/questions/7034537/nodejs-what-is-the-proper-way-to-handling-tcp-socket-streams-which-delimiter
@@ -232,7 +257,7 @@ net.createServer(function(sock) {
 
 }).listen(NETPORT, NETHOST);
 
-console.log((new Date()) + ' UnixSocket Server listening on ' + NETHOST +':'+ NETPORT);
+console.log((new Date()) + ' UI Socket Server listening on ' + NETHOST +': '+ NETPORT);
 
 /**
  * ===================== HTML server ========================
@@ -247,4 +272,4 @@ connect.createServer(
 }
 ).listen(HTMLPORT);
 
-});
+}); /* End - iniparser wrapper */

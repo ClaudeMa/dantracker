@@ -159,7 +159,8 @@ struct t_ax25call {
 struct t_ax25packet {
 	int     valid;
     /* Moni */
-	time_t  time;
+        time_t  time;
+        struct timeval timeval;
 	char    *port;
     /* KISS */
 	int     fsmack,
@@ -259,7 +260,27 @@ void tryspydxcluster(struct t_ax25packet*);
 struct t_qso* doQSOMheard(struct t_ax25packet* pax25);
 void qsoclientIndexDeleted( int );
 void qsoclientIndexChanged( int, int );
+
+
+
+char *ax25packet_dump(struct t_ax25packet *pax25packet, int dumpstyle, int displayformat);
+struct t_ax25packet *ax25_decode( struct t_ax25packet *ax25packet , unsigned char *data, int length);
+
+char *pax25(char *, unsigned char *);
+
+/* In ipdump.c */
+void ip_dump(char *, unsigned char *, int, int);
+
+/* In nrdump.c */
+void netrom_dump(char *, unsigned char *data, int length, int dumpstyle, int pkttype);
+
+void mprintf(char *accumStr, int dtype, char *fmt, ...);
+
 #if 0
+
+/* ax25dump.c */
+void ax25_dump( struct t_ax25packet*, unsigned char *, int, int);
+
 void delQSO( struct t_qso * );
 struct t_qso* searchQSOFromQSOid( t_qsoid );
 
@@ -278,18 +299,9 @@ int calc_abincrc(char* , int , unsigned int );
 void kiss_dump(struct t_ax25packet*, unsigned char *, int, int);
 void dev_dump( struct ifreq *, unsigned char *data, int length);
 
-/* ax25dump.c */
-void ax25_dump( struct t_ax25packet*, unsigned char *, int, int);
-char *pax25(char *, unsigned char *);
-
-/* In nrdump.c */
-void netrom_dump(unsigned char *, int, int);
 
 /* In arpdump.c */
 void arp_dump(unsigned char *, int);
-
-/* In ipdump.c */
-void ip_dump(unsigned char *, int, int);
 
 /* In icmpdump.c */
 void icmp_dump(unsigned char *, int, int);

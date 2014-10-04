@@ -11,8 +11,8 @@ struct posit {
 	double speed;
 	int qual;
 	int sats;
-	time_t tstamp;
-	int dstamp;
+	time_t tstamp; /* UTC time of fix from GPGGA */
+	int dstamp;    /* UTC date of fix from GPRMC */
 };
 
 int valid_checksum(char *str);

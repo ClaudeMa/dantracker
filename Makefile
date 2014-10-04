@@ -3,8 +3,8 @@ SHELL:=/bin/bash
 # Set DEBUG_ON to YES or NO
 #  DEBUG_ON=YES enables pr_debug macro
 DEBUG_ON=YES
-WEBAPP_ENABLE=YES
 GTKAPP_ENABLE=NO
+WEBAPP_ENABLE=YES
 
 DEST="root@beagle:carputer"
 
@@ -17,10 +17,10 @@ APRS_ICON_SIZE=${APRS_IMG_MULT}00%
 # Make available to Makefile in images directory
 export APRS_ICON_SIZE
 
-CFLAGS = -g -Wall -Werror
-LIBS = -lfap -liniparser
+CFLAGS = -Wall -Werror
+CFLAGS_NOWEB = -Wall -Werror
 
-TARGETS = aprs fakegps aprs-is faptest
+TARGETS = aprs fakegps aprs-is faptest aprs-spy
 
 ifeq ($(GTKAPP_ENABLE), YES)
 GTK_CFLAGS = `pkg-config --cflags 'gtk+-2.0'`
@@ -33,31 +33,44 @@ BUILD=$(shell cat .build)
 REVISION=$(shell cat .revision)
 
 CFLAGS+=-DBUILD="\"$(BUILD)\"" -DREVISION="\"$(REVISION)\""
+CFLAGS_NOWEB+=-DBUILD="\"$(BUILD)\"" -DREVISION="\"$(REVISION)\""
 
 ifeq ($(LIBAX25), -lax25)
 TARGETS+= aprs-ax25
 CFLAGS+= -DHAVE_AX25_TRUE
 LIBS+=$(LIBAX25)
+
+CFLAGS_NOWEB+= -DHAVE_AX25_TRUE
+LIBS_NOWEB+=$(LIBAX25)
+else
+echo "AX.25 not installed!"
 endif
 
 # -g option compiles with symbol table
 ifeq ($(DEBUG_ON), YES)
 CFLAGS+=-DDEBUG -g
+CFLAGS_NOWEB+=-DDEBUG -g
 endif
+
+# Flags & libs for apps that don't use webapp
+CFLAGS_NOWEB+= -DCONSOLE_SPY
 
 ifeq ($(WEBAPP_ENABLE), YES)
 CFLAGS+=-DWEBAPP
+LIBS+=-lfap -liniparser
 LIBS+=-ljson-c
 endif
+
 
 .PHONY :  images clean sync install
 
 all : $(TARGETS) images
 
-aprs.o: aprs.c uiclient.c serial.c nmea.c aprs-is.c aprs-ax25.c aprs-msg.c conf.c util.o util.h aprs.h Makefile
+aprs.o: aprs.c uiclient.c serial.c nmea.c aprs-is.c aprs-ax25.c aprs-msg.c conf.c util.o util.h aprs.h Makefile ax25dump.c ipdump.c
 uiclient.o: uiclient.c ui.h util.c util.h Makefile
 aprs-is.o: aprs-is.c conf.c util.c aprs-is.h util.h aprs.h Makefile
-aprs-ax25.o: aprs-ax25.c aprs-ax25.h aprs.h conf.c util.c aprs-is.h util.h Makefile ax25dump.c
+aprs-ax25.o: aprs-ax25.c aprs-ax25.h aprs.h conf.c util.c aprs-is.h util.h Makefile ax25dump.c ipdump.c
+aprs-spy.o: aprs-ax25.c aprs-ax25.h aprs.h util.c aprs-is.h util.h Makefile ax25dump.c ipdump.c Makefile
 serial.o: serial.c serial.h
 nmea.o: nmea.c nmea.h
 util.o: util.c util.h
@@ -67,11 +80,11 @@ crc.o: crc.c
 faptest.o: faptest.c
 
 
-aprs: aprs.o uiclient.o nmea.o aprs-is.o serial.o aprs-ax25.o aprs-msg.o conf.o util.o
+aprs: aprs.o uiclient.o nmea.o aprs-is.o serial.o aprs-ax25.o aprs-msg.o conf.o util.o ax25dump.o ipdump.o crc.o
 #	@echo "libs: $(LIBS), cflags: $(CFLAGS), libax25: $(LIBAX25), build: $(BUILD), rev: $(REVISION)"
-	test -d .hg && hg id --id > .revision || true
+	@if [ "$(LIBAX25)" = "" ]; then echo; echo "AX.25 stack not installed";echo; fi
 	echo $$((`cat .build` + 1)) > .build
-	$(CC) $(CFLAGS) $(APRS_CFLAGS) -o $@ $^  $(LIBS)
+	$(CC) $(CFLAGS) -o $@ $^  -lm $(LIBS) -lgps
 
 ui: ui.c uiclient.o aprs.h ui.h util.c util.h
 	$(CC) $(CFLAGS) -DAPRS_IMG_MULT=${APRS_IMG_MULT} $(GTK_CFLAGS) $(GLIB_CFLAGS) $^ -o $@ $(GTK_LIBS) $(GLIB_LIBS) $(LIBS)
@@ -82,8 +95,11 @@ uiclient: uiclient.c ui.h util.c util.h
 aprs-is: aprs-is.c conf.o util.o util.h aprs-is.h aprs.h
 	$(CC) $(CFLAGS) -DMAIN  $< -o $@ conf.o util.o -lm $(LIBS)
 
-aprs-ax25: aprs-ax25.c conf.o util.o util.h aprs-is.h aprs-ax25.h aprs.h ax25dump.o crc.o
-	$(CC) $(CFLAGS) -DMAIN  $< -o $@ conf.o util.o ax25dump.o crc.o -lm $(LIBS)
+aprs-ax25: aprs-ax25.c conf.o util.o util.h aprs-is.h aprs-ax25.h aprs.h ax25dump.o ipdump.o crc.o
+	$(CC) $(CFLAGS) -DMAIN  $< -o $@ conf.o util.o ax25dump.o ipdump.o crc.o -lm $(LIBS)
+
+aprs-spy: aprs-ax25.c util.o util.h aprs-is.h aprs-ax25.h aprs.h ax25dump.o ipdump.o crc.o Makefile
+	$(CC) $(CFLAGS_NOWEB) -DMAIN $< -o $@ util.o ax25dump.o ipdump.o crc.o -lm $(LIBS_NOWEB)
 
 fakegps: fakegps.c
 	$(CC) $(CFLAGS) -o $@ $< -lm
@@ -95,7 +111,7 @@ images:
 	$(MAKE) -C images
 
 clean:
-	rm -f $(TARGETS) *.o *~ ./images/*_big.png
+	rm -f $(TARGETS) aprs-spy *.o *~ ./images/*_big.png
 
 sync:
 	scp -r *.c *.h Makefile tools images .revision .build $(DEST)

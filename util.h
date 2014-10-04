@@ -9,6 +9,7 @@
 #define __UTIL_H
 
 #include <time.h>
+#include <stdbool.h>
 
 #define KPH_TO_MPH(km) (km * 0.621371192)
 #define MS_TO_MPH(m) (m * 2.23693629)
@@ -37,6 +38,7 @@ char *get_escaped_string(char *string);
 double get_direction(double fLng, double fLat, double tLng, double tLat);
 char *strupper(char *s);
 char *time2str(time_t *ptime, int format);
+char *mtime2str(struct timeval *tvtime, bool bmsec);
 int get_base_callsign(char *strOutput, int *ssid, char *strInput);
 
 

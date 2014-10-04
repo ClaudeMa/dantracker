@@ -147,7 +147,7 @@ $(function () {
         //        "use strict";
 
         /* Address of machine hosting aprs & node.js */
-        var WebIpSock="1339";
+        var WebIpSock="57333";
         /* Get server IP */
         var WebIpAddr = window.location.hostname;
         var image_dir = './images/';
@@ -322,6 +322,9 @@ $(function () {
                         return;
                 }
 
+//		console.log('Got this JSON: ', JSON.stringify(json));
+//		console.log('Got this aprs: ' + json.aprs + ' data: ' + json.data );
+
                 // NOTE: if you're not sure about the JSON structure
                 // check the server source code above
                 if (json.type === 'color') { // first response from the server with user's color
@@ -351,16 +354,16 @@ $(function () {
                                    json.data.color, new Date(json.data.time));
 
 
-                } else if (json.type === 'aprs') {
-                        var json1 = JSON.parse(json.data);
-                        var jname = json1.name.slice(0,-1);
-                        var jvalue = json1.value.slice(0,-1);
+		} else if (json.aprs != undefined) {
 
-                        //                        aprsDebugWin.append('<p>DEBUG2: ' + 'name: ' + jname + ' value: ' + jvalue + '</p>');
+			var jname = json.aprs;
+			var jvalue = json.data;
+
+//			console.log('aprs: '+ JSON.stringify(json));
 
                         if(jname.indexOf("AI_") == 0) {
 
-                                switch(json1.name.slice(0,-1)) {
+                                switch(jname) {
                                         case 'AI_ICON':
                                                 ai_win['icon'] = jvalue;
                                                 parse_icon(jvalue, 'canwin1');
@@ -378,7 +381,7 @@ $(function () {
                                                 ai_win['distance'] = jvalue;
                                                 break;
                                         default:
-                                                aprsDebugWin.append('<p>' + 'AI_ catch all: ' + 'name: ' + json1.name + ' value: ' + json1.value + '</p>');
+                                                aprsDebugWin.append('<p>' + 'AI_ catch all: ' + 'name: ' + jname + ' value: ' + jvalue + '</p>');
                                                 break;
                                 }
 
@@ -396,33 +399,33 @@ $(function () {
 
                         } else if(jname.indexOf("G_") == 0) {
 
-                                switch(json1.name.slice(0,-1)) {
+                                switch(jname) {
                                         case 'G_SPD':
-                                                g_win.spd = json1.value;
+                                                g_win.spd = jvalue;
                                                 break;
 
                                         case "G_MYCALL":
-                                                g_win.mycall = json1.value;
+                                                g_win.mycall = jvalue;
                                                 break;
 
                                         case "G_LASTBEACON":
-                                                g_win.lastbeacon = json1.value;
+                                                g_win.lastbeacon = jvalue;
                                                 break;
 
                                         case 'G_SIGBARS':
-                                                g_win.sigbars = json1.value;
-                                                var barval = parseInt(json1.value, 10);
+                                                g_win.sigbars = jvalue;
+                                                var barval = parseInt(jvalue, 10);
                                                 //                                gps_signal_display(barval);
                                                 break;
 
                                         case 'G_LATLON':
-                                                g_win.latlon = json1.value;
+                                                g_win.latlon = jvalue;
                                                 break;
                                         case 'G_REASON':
-                                                g_win.reason = json1.value;
+                                                g_win.reason = jvalue;
                                                 break;
                                         default:
-                                                aprsDebugWin.append('<p>' + 'G_ catch all: ' + 'name: ' + json1.name + ' value: ' + json1.value + '</p>');
+                                                aprsDebugWin.append('<p>' + 'G_ catch all: ' + 'name: ' + jname + ' value: ' + jvalue + '</p>');
                                                 break;
                                 }
 
@@ -476,7 +479,7 @@ $(function () {
                                                 aprsCallsignHistory[7] = '<p>' +  jvalue + '</p>';
                                                 break;
                                         default:
-                                                aprsDebugWin.append('<p>' + 'AL_ catch all: ' + 'name: ' + json1.name + ' value: ' + json1.value + '</p>');
+                                                aprsDebugWin.append('<p>' + 'AL_ catch all: ' + 'name: ' + jname + ' value: ' + jvalue + '</p>');
                                                 break;
 
                                 }
@@ -499,7 +502,7 @@ $(function () {
                                                 parse_icon(jvalue, 'canwin2');
                                                 break;
                                         default:
-                                                aprsDebugWin.append('<p>' + 'WX_ catch all: ' + 'name: ' + json1.name + ' value: ' + json1.value + '</p>');
+                                                aprsDebugWin.append('<p>' + 'WX_ catch all: ' + 'name: ' + jname + ' value: ' + jvalue + '</p>');
                                                 break;
                                 }
 
@@ -538,7 +541,7 @@ $(function () {
                                                 break;
 
                                         deflault:
-                                                aprsDebugWin.html('<p>' + 'I_ catch: ' + 'name: ' + json1.name + ' value: ' + json1.value + '</p>');
+                                                aprsDebugWin.html('<p>' + 'I_ catch: ' + 'name: ' + jname + ' value: ' + jvalue + '</p>');
                                                 break;
                                 }
                                 document.getElementById("aprswin1").style.backgroundColor=flashColor;
@@ -577,7 +580,7 @@ $(function () {
                                 var n = $("#messages").children().length;
 
                                 messages.append('<div class="item"><span style="color:' + color + '">' + '</span> '
-                                               + json1.value + '</div>');
+                                               + jvalue + '</div>');
 
                                 messages.scrollTop(messages[0].scrollHeight);
 
@@ -588,7 +591,7 @@ $(function () {
                                 var n = $("#aprsdebugwin2").children().length;
 
                                 aprsEncapWin.append('<div class="item"><span style="color:' + color + '">' + '</span> '
-                                        + json1.value + '</div>');
+                                        + jvalue + '</div>');
 
                                 aprsEncapWin.scrollTop(aprsEncapWin[0].scrollHeight);
 
@@ -596,17 +599,19 @@ $(function () {
                                         $("#aprsdebugwin2").children("div:first").remove()
                                 }
                         } else if(jname.indexOf("CF_") == 0) {
-                                callsign_from.attr('disabled', 'disabled').val(json1.value);
-                                myName = json1.value;
-                                addDebug('Callsign: ' + json1.name + ' value: ' + json1.value + ' myName: ' + myName);
+                                callsign_from.attr('disabled', 'disabled').val(jvalue);
+                                myName = jvalue;
+                                addDebug('Callsign: ' + jname + ' value: ' + jvalue + ' myName: ' + myName);
                                 // Let the websock server know
                                 connection.send(JSON.stringify( { type: 'callsign', data: myName} ));
 
                         } else {
-                                addDebug('Unhandled: ' + 'name: ' + json1.name + ' value: ' + json1.value);
+                                addDebug('Unhandled: ' + 'name: ' + jname + ' value: ' + jvalue);
                         }
 
-                } else {
+		} else if (json.spy != undefined) {
+//			console.log('Spy: '+ JSON.stringify(json));
+		} else {
                         aprsDebugWin.append('<p>' + 'Parse: I\'ve never seen JSON like this: ' + JSON.stringify(json) + '</p>');
 
                         console.log('Hmm..., I\'ve never seen JSON like this: ', JSON.stringify(json));

@@ -11,6 +11,8 @@
 #include <ctype.h>
 #include <stdint.h>
 #include <math.h>
+#include <sys/time.h>
+#include <time.h>
 
 #include "util.h"
 #include "aprs.h"
@@ -98,6 +100,42 @@ char *time2str(time_t *ptime, int format_type)
                          "%y%m%d%H%M"
                          ,ptm_now );
 
+        }
+        return( tmstring );
+}
+
+/*
+ * Display current time, option of milliseconds
+ */
+char *mtime2str(struct timeval *tvtime, bool bmsec)
+{
+        struct tm *now;
+        static char tmstring[40];
+        struct timeval curtime,  *thistime;
+        struct timezone tmzone;
+
+
+        if (tvtime == NULL) {
+                gettimeofday(&curtime, &tmzone);
+                thistime=&curtime;
+        } else {
+                thistime=tvtime;
+        }
+
+        now = localtime(&thistime->tv_sec);
+        if(bmsec) {
+                sprintf(tmstring,
+                          "%d:%02d:%02d:%03ld",
+                          now->tm_hour,
+                          now->tm_min,
+                          now->tm_sec,
+                          thistime->tv_usec/1000);
+        } else {
+                sprintf(tmstring,
+                          "%d:%02d:%02d",
+                          now->tm_hour,
+                          now->tm_min,
+                          now->tm_sec);
         }
         return( tmstring );
 }

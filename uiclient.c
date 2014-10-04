@@ -70,10 +70,10 @@ void ui_unix_sock_wait(struct state *state)
 int ui_connect(struct state *state)
 {
 	int sock;
-        struct sockaddr *dest =  &state->conf.display_to;
+        struct sockaddr *dest =  &state->conf.display_to.afinet;
         unsigned int dest_len = sizeof(state->conf.display_to);
 
-        if(state->conf.display_to.sa_family == AF_UNIX) {
+        if(state->conf.display_to.afinet.sa_family == AF_UNIX) {
                 /* clean-up previous socket */
                 ui_unix_sock_wait(state);
         }
@@ -95,6 +95,24 @@ int ui_connect(struct state *state)
         }
 
 	return sock;
+}
+
+json_object *build_browser_msg(const char *name, const char *value)
+{
+
+        json_object *aprs_object;
+
+        /* Create a json object */
+        aprs_object = json_object_new_object();
+
+        json_object_object_add(aprs_object, "aprs", json_object_new_string(name));
+        json_object_object_add(aprs_object, "data", json_object_new_string(value));
+
+#if 0
+        printf("Json object created %s\n", json_object_to_json_string(aprs_object));
+#endif
+
+        return (aprs_object);
 }
 
 struct ui_msg *build_lcd_msg(uint16_t msg_type, const char *name, const char *value)
@@ -140,17 +158,35 @@ struct ui_msg *build_lcd_msg(uint16_t msg_type, const char *name, const char *va
 
 int ui_send(int sock, const char *name, const char *value)
 {
-	struct ui_msg *msg;
 	int ret;
 
+#ifdef WEBAPP
+        json_object *json_msg;
+        char *str_msg;
+
+        json_msg = build_browser_msg(name, value);
+        str_msg = (char *)json_object_to_json_string(json_msg);
+        /* send a message on a socket */
+        ret = send(sock, str_msg, strlen(str_msg), MSG_NOSIGNAL);
+
+        /* decrement the reference count of json object, & free if 0 */
+        json_object_put(json_msg);
+
+#else
+        struct ui_msg *msg;
+
 	msg = build_lcd_msg(MSG_SETVALUE, name, value);
+
 	if(msg == NULL) {
 		return -ENOMEM;
 	}
-
+        /* send a message on a socket */
 	ret = send(sock, msg, msg->length, MSG_NOSIGNAL);
 
-	free(msg);
+        free(msg);
+
+#endif
+
 	return ret;
 }
 

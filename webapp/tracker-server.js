@@ -26,11 +26,11 @@ var mod_ctype = require(global_module_dir + 'ctype');
 
 // *** Network socket server
 var net = require('net');
-var NETHOST = '127.0.0.1';
-
+var NETHOST;
+var NETPORT;
 var UNIXPORT;
+
 var HTMLPORT;
-var NETPORT = 9123;  // default INET socket
 var webSocketPort;
 
 /**
@@ -63,10 +63,15 @@ iniparser.parse(ini_file, function(err, data) {
                 return;
         }
 
+	NETHOST = data.ui_net.sock_hostname;
+	NETPORT = data.ui_net.sock_port;
+
         if( data.ui_net.unix_socket != undefined ) {
                 UNIXPORT = data.ui_net.unix_socket;
                 NETPORT = UNIXPORT;
         }
+
+	console.log("Connections: websocket port: " + webSocketPort + '  Net Host: ' + NETHOST + ' port: ' + NETPORT);
 
 //var broadcastPort = webSocketPort + 1;
 var broadcastPort = 43256;
@@ -79,11 +84,12 @@ var TCP_BUFFER_SIZE = Math.pow(2,16);
 // latest 100 messages
 var history = [ ];
 // list of currently connected clients (users)
-var chatClients = [];
+var trkClients = [];
 
 var netClients = [ ];
 var wsClients = [ ];
 var serverIPaddress='';
+var connectionIDcounter = 0;
 
 
 // websocket and http servers
@@ -97,6 +103,45 @@ var msg_emitter = new events.EventEmitter();
 // Broadcast Server
 var dgramServer = require('dgram');
 
+// Enhance JSON method with better error handling
+(function(){
+
+	var parse = JSON.parse;
+
+	JSON = {
+
+		stringify: JSON.stringify,
+
+			   validate: function(str){
+
+				   try{
+					   parse(str);
+					   return true;
+				   } catch(err){
+					   return err;
+				   }
+
+			   },
+
+			   parse: function(str){
+
+				   try{
+					   return parse(str);
+				   } catch(err){
+					   return undefined;
+				   }
+			   }
+	}
+
+})();
+
+function showObjElements(myObj){
+	for (var member in myObj){
+		if (myObj.hasOwnProperty(member)){
+			console.log(myObj[member]);
+		}
+	}
+}
 
 /**
  * Helper function for escaping input strings
@@ -104,6 +149,25 @@ var dgramServer = require('dgram');
 function htmlEntities(str) {
 	return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;')
 			.replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function send_aprs_display(message, orig) {
+
+	/*
+			* Temporary Debug to catch any invalid json
+			*/
+
+	if(JSON.validate(message) !== true) {
+		console.log('Caught invalid json string: ' + message );
+		console.log('original string: ' + orig.toString('utf8') );
+	}
+	if(trkClients[0] !== undefined && trkClients.length !== undefined) {
+
+		for (var i=0; i < trkClients.length; i++) {
+//                        console.log('send_aprs_display: sending to ' +  i + ' len: '+ message.length);
+			trkClients[i].sendUTF(message);
+		}
+	}
 }
 
 // Array with some colors, don't use the background color, currently orange
@@ -147,31 +211,28 @@ wsClients.push(wsServer);
 // tries to connect to the WebSocket server
 wsServer.on('request', function(request) {
 
-	console.log((new Date()) + ' Connection from origin ' + request.origin + '.');
+	var userName = false;
+	var destName = false;
+	var userColor = false;
+
+	console.log((new Date()) + ' Connection from origin ' + request.origin);
 
 	// accept connection - you should check 'request.origin' to make sure that
 	// client is connecting from your website
 	// (http://en.wikipedia.org/wiki/Same_origin_policy)
 	var connection = request.accept(null, request.origin);
 	// we need to know client index to remove them on 'close' event
-	var index = chatClients.push(connection) - 1;
-        var userName = false;
-        var destName = false;
-	var userColor = false;
-
-	console.log((new Date()) + ' Connection accepted.');
+	connection.id = connectionIDcounter;
+	var index = trkClients.push(connection) - 1;
+	connectionIDcounter++;
 
 	// send back chat history
 	if (history.length > 0) {
 		connection.sendUTF(JSON.stringify( { type: 'history', data: history} ));
 	}
 
-	//Test if anyone has logged in yet
-	if(chatClients[0] !== undefined && chatClients[0].length !== undefined) {
-		console.log("ws: Client length: " +  chatClients[0].length );
-	} else {
-		console.log("ws: NO Client");
-	}
+//	showObjElements(request);
+	console.log('OPENING connection: id: ' + connection.id + ', index: ' + index + ', ip: ' + connection.remoteAddress + ', connections open: ' + trkClients.length);
 
 	// user sent some message
         connection.on('message', function(message) {
@@ -235,8 +296,8 @@ wsServer.on('request', function(request) {
 
                                 // broadcast message to all connected clients
                                 var json = JSON.stringify({ type:'message', data: obj });
-                                for (var i=0; i < chatClients.length; i++) {
-                                        chatClients[i].sendUTF(json);
+                                for (var i=0; i < trkClients.length; i++) {
+                                        trkClients[i].sendUTF(json);
                                 }
 
                                 connection.sendUTF(JSON.stringify({ type:'color', data: userColor }));
@@ -256,15 +317,24 @@ wsServer.on('request', function(request) {
         });  //connection on message
 
 	// user disconnected
-	connection.on('close', function(connection) {
-		if (userName !== false && userColor !== false) {
-			console.log((new Date()) + " Peer "
-				    + connection.remoteAddress + " disconnected.");
-			// remove user from the list of connected clients
-			chatClients.splice(index, 1);
-			// push back user's color to be reused by another user
-			colors.push(userColor);
+	connection.on('close', function(reasonCode, description) {
+
+		var i = 0;
+
+		while( i < trkClients.length) {
+
+			if(trkClients[i].id == connection.id) {
+				// remove user from the list of connected clients
+				trkClients.splice(i, 1);
+				console.log((new Date()) + ' CLOSING Connection: id: ' + connection.id  + ', remaining: ' + trkClients.length + ', reason: ' + description);
+				break;
+			}
+			i++;
 		}
+
+		// push back user's color to be reused by another user
+		colors.push(userColor);
+
 	}); //connection on close
 }); // wsServer on
 
@@ -277,6 +347,7 @@ wsServer.on('request', function(request) {
  */
 net.createServer(function(sock) {
 
+	var jchunk = "";
 
 	// We have a connection - a socket object is assigned to the connection automatically
 	console.log('CONNECTED: ' + sock.remoteAddress +':'+ sock.remotePort);
@@ -285,132 +356,51 @@ net.createServer(function(sock) {
 	// http://stackoverflow.com/questions/7034537/nodejs-what-is-the-proper-way-to-handling-tcp-socket-streams-which-delimiter
 	var buf = new Buffer(TCP_BUFFER_SIZE);  //new buffer with size 2^16
 
-//	sock.emit(news, {hello: world});
+	//	sock.emit(news, {hello: world});
 	netClients.push(sock);
 
-	if(chatClients[0] !== undefined && chatClients[0].length !== undefined) {
-		console.log("net0: Chat Client length: " +  chatClients[0].length );
+	if(trkClients[0] !== undefined && trkClients[0].length !== undefined) {
+		console.log("net0: Chat Client length: " +  trkClients[0].length );
 	} else {
 		console.log("net0: NO Chat Client");
 	}
-	var icount = 0;
 
 	// 'data' event handler for this instance of socket
 	sock.on('data', function(data) {
-		var dataStr = data.toString('utf8');
-/* #if 0
-		console.log('DATA ' + sock.remoteAddress + ': ' + "data length: " + data.length + data.toString('utf8'));
-#endif */
+		jchunk += data.toString('utf8');
+		var origdata = data; // save the starting string for debug
 
-		var parser = new mod_ctype.Parser({ endian: 'little' });
-		parser.typedef('msg_t', [
-					   { type: { type: 'uint16_t' } },
-					   { len: { type: 'uint16_t' } },
-					   { namelen: { type: 'uint16_t' } },
-					   { valuelen: { type: 'uint16_t' } }
-		]);
-
-		var offset = 0;
-		var i = 0;
-		while(offset < data.length) {
-			var out = parser.readData([ { point: { type: 'msg_t' } } ], data, offset);
-// debug out		console.log(out);
-/* #if 0
-			console.log("check: " + i + " len: "+ out.point.len
-				    + " name_len : " + out.point.namelen
-				    + " value_len: " + out.point.valuelen
-				    + data.slice(8+offset, 8+offset+out.point.namelen+out.point.valuelen) );
-#endif */
-/* #if debug out
-			console.log('Part TEST ' + i + ' type: ' + out.point.type.toString(16) + " "
-				    + 'len: ' + out.point.len.toString(16)
-				    + " name[" + out.point.namelen + "]: " + data.slice(8+offset, 8+offset+out.point.namelen)
-				    + " value[" + out.point.valuelen + "]: " + data.slice(8+offset+out.point.namelen, 8+offset+out.point.namelen+out.point.valuelen)
-				   );
-*/
-
-			// Stringify the aprs_disp object
-			var aprs_disp = {
-				"name": "" + data.slice(8+offset, 8+offset+out.point.namelen),
-				"value": "" + data.slice(8+offset+out.point.namelen, 8+offset+out.point.namelen+out.point.valuelen)
+		// Check for TCP stream combining JSON objects
+		var d_index = jchunk.search("}{");
+		if(d_index == -1) { // No combined JSON objects
+			// Verify json object is complete
+			if(JSON.validate(jchunk) === true) {
+				send_aprs_display(jchunk, origdata);
+				jchunk = "";
 			}
+		} else {
+			// Get the concatenated JSON objects?
+			while (d_index != -1) {
+				var jmsg = jchunk.slice(0, d_index+1);
+				jchunk = jchunk.slice(d_index+1);
 
-			var aprsdisp_json = JSON.stringify(aprs_disp);
-//			console.log("aprs_disp: " + aprsdisp_json );
-			icount++;
-			aprs_emitter.emit("aprs_disp", aprsdisp_json);
-
-			// spew aprs packets to all connected clients
-			//Test if anyone has logged in yet
-			if(chatClients[0] !== undefined && chatClients[0].length !== undefined) {
-			//var json = JSON.stringify({ type:'message', data: aprs_disp });
-			//chatClients[0].sendUTF(json);
-				console.log("net1: Client length: " +  chatClients[0].length );
-			} else {
-//				console.log("net1: NO Client");
+				send_aprs_display(jmsg, origdata);
+				d_index = jchunk.search("}{");
 			}
-
-
-			offset += out.point.len;
-			i++;
-
-		}
-/* #if 0
-		offset = 0;
-
-		for(var i = 0; i < parts.length-1; i++) {
-
-			var msg = parser.readData([ { point: { type: 'point_t' } } ], data, offset);
-			console.log("Loop: " + "offset: " + offset + ": " + msg.point.namevalstr);
-			console.log("slice: "+ msg.point.namelen+ " - " + parts[i].slice(8) );
-			offset+= msg.point.len;
-
-			if(0) {
-				console.log('Part TEST ' + i +' : ' + msgstruct.type.toString(16) + "" + '  ' + msgstruct.len.toString(16) + ' ' +
-					    msgstruct.namelen.toString(16) + ' '+ msgstruct.valuelen.toString(16)
-					    + ' '+ dataStr.substring(8,msgstruct.namelen+8)
-					    + ' '+ dataStr.substring(msgstruct.namelen+8, msgstruct.len)
-					   );
-			} else {
+			// Verify last json object in concatenated
+			// stream is complete.
+			if(JSON.validate(jchunk) === true) {
+				send_aprs_display(jchunk, origdata);
+				jchunk = "";
 
 			}
 		}
-#endif */
-		/*
-		console.log('TEST ' + ': ' + msgstruct.type.toString(16) + "" + '  ' + msgstruct.len.toString(16) + ' ' +
-		msgstruct.namelen.toString(16) + ' '+ msgstruct.valuelen.toString(16)
-		+ ' '+ dataStr.substring(8,msgstruct.namelen+8)
-		+ ' '+ dataStr.substring(msgstruct.namelen+8, msgstruct.len)
-		);
-*/
-		// Write the data back to the socket, the client will receive it as data from the server
-		//		sock.write('You said "' + data + '"');
-
 	});
 
 	// Add a 'close' event handler to this instance of socket
 	sock.on('close', function(data) {
 		console.log('Unix socket connection closed at: ' + (new Date()) + 'socket address: ' + sock.remoteAddress +' '+ sock.remotePort);
 	});
-
-        aprs_emitter.on("aprs_disp", function(message) {
-
-                if(chatClients[0] !== undefined && chatClients.length !== undefined) {
-                        //			console.log("wsServer message: " + message);
-                        var json1 = JSON.parse(message);
-                        //			console.log(json1);
-                        //			console.log("Name: " + json1.name + " Value: "+ json1.value);
-                        var json = JSON.stringify({ type:'aprs', data: message });
-
-                        for (var i=0; i < chatClients.length; i++) {
-//                        console.log('aprs_emitter: sending to ' +  i + ' total: '+ chatClients.length);
-                        chatClients[i].sendUTF(json);
-                }
-//                        var json = JSON.stringify({ type:'aprs', data: message });
-//                        chatClients[0].sendUTF(json);
-
-                }
-        });
 
         msg_emitter.on("aprs_msg", function(message) {
                 console.log('MSG: ' + message);
@@ -429,7 +419,7 @@ net.createServer(function(sock) {
 
 }).listen(NETPORT, NETHOST); /* create server */
 
-console.log('Unix Socket Server listening on ' + NETHOST +':'+ NETPORT);
+console.log((new Date()) + 'UI Socket Server listening on ' + NETHOST +':'+ NETPORT);
 
 
 /**

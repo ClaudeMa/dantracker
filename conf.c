@@ -63,7 +63,7 @@ int lookup_host(struct state *state)
 {
         const char *hostname =state->conf.ui_host_name;
         struct hostent *host;
-        struct sockaddr_in *sa = (struct sockaddr_in *)&state->conf.display_to;
+        struct sockaddr_in *sa = (struct sockaddr_in *)&state->conf.display_to.afinet;
 
         printf("Looking up hostname: %s\n", hostname);
         host = gethostbyname(hostname);
@@ -80,7 +80,7 @@ int lookup_host(struct state *state)
         sa->sin_family = AF_INET;
         sa->sin_port = htons(state->conf.ui_inet_port);
         memcpy(&sa->sin_addr, host->h_addr_list[0], sizeof(sa->sin_addr));
-
+        fprintf(stderr, "Found address for hostname: %s\n", hostname);
         return 0;
 }
 
@@ -524,6 +524,27 @@ int parse_ini(char *filename, struct state *state)
         tmp = strdup(iniparser_getstring(ini, "debug:parse_ini_test", "OFF"));
         strupper(tmp);
         state->debug.parse_ini_test = STREQ(tmp, "OFF") ? false : true;
+        state->debug.verbose_level = iniparser_getint(ini, "debug:verbose_level", 0);
+
+        tmp = strdup(iniparser_getstring(ini, "debug:display_fap_enable", "OFF"));
+        strupper(tmp);
+        state->debug.display_fap_enable = STREQ(tmp, "OFF") ? false : true;
+
+        tmp = strdup(iniparser_getstring(ini, "debug:display_spy_enable", "OFF"));
+        strupper(tmp);
+        state->debug.display_spy_enable = STREQ(tmp, "OFF") ? false : true;
+
+        tmp = strdup(iniparser_getstring(ini, "debug:console_spy_enable", "OFF"));
+        strupper(tmp);
+        state->debug.console_spy_enable = STREQ(tmp, "OFF") ? false : true;
+
+        if (state->debug.display_fap_enable) {
+                printf("FAB display enabled\n");
+        }
+
+        if (state->debug.display_spy_enable) {
+                printf("SPY display enabled\n");
+        }
 
         if (!state->conf.tnc)
                 state->conf.tnc = iniparser_getstring(ini, "tnc:port", NULL);
@@ -535,8 +556,18 @@ int parse_ini(char *filename, struct state *state)
 
         if (!state->conf.gps)
                 state->conf.gps = iniparser_getstring(ini, "gps:port", NULL);
-        state->conf.gps_type = iniparser_getstring(ini, "gps:type", "static");
         state->conf.gps_rate = iniparser_getint(ini, "gps:rate", 4800);
+        state->conf.gps_type = iniparser_getstring(ini, "gps:type", "static");
+
+        /* set default gps device static/fake */
+        state->conf.gps_type_int = GPS_TYPE_FAKE;
+
+        /* set gps device based on ini file string */
+        if(STREQ(state->conf.gps_type, "gpsd")) {
+                state->conf.gps_type_int = GPS_TYPE_GPSD;
+        } else if(STREQ(state->conf.gps_type, "serial")) {
+                state->conf.gps_type_int = GPS_TYPE_SERIAL;
+        }
 
         /* Build the TIER 2 host name */
         tmp = iniparser_getstring(ini, "net:server_host_address", "oregon");
@@ -595,9 +626,16 @@ int parse_ini(char *filename, struct state *state)
         pr_debug("Calling iniparser for station call %s, ssid:%d\n",
                  state->basecall, state->myssid);
 
+        state->conf.ui_host_name = iniparser_getstring(ini, "ui_net:sock_hostname", "");
+        printf("conf debug: sock_host name string length = %zd\n", strlen(state->conf.ui_host_name));
 
-        /* If host address arg isn't defined on command line (-d) use this
-         * UNIX socket path */
+        if (strlen(state->conf.ui_host_name) == 0 ) {
+                state->conf.ui_host_name = NULL;
+        } else {
+                printf("got this hostname: %s\n", state->conf.ui_host_name);
+        }
+
+        /* If host address arg isn't defined us UNIX socket path */
         asprintf(&socketpath, "/tmp/%s_UI", basecallsign);
         state->conf.ui_sock_path = iniparser_getstring(ini, "ui_net:unix_socket", socketpath);
         if(has_key(state->conf.ui_sock_path)) {
@@ -605,7 +643,26 @@ int parse_ini(char *filename, struct state *state)
                 subst_line_cnt++;
         }
 
-        state->conf.ui_inet_port = iniparser_getint(ini, "ui_net:inet_port", 9123);
+        state->conf.ui_inet_port = iniparser_getint(ini, "ui_net:sock_port", 9123);
+
+
+        /* configure what gets display for packet spy */
+        tmp = strdup(iniparser_getstring(ini, "display:time", "OFF"));
+        strupper(tmp);
+        state->conf.spy_format |= STREQ(tmp, "OFF") ? 0 : SPY_FORMAT_TIME_ENABLE;
+
+        tmp = strdup(iniparser_getstring(ini, "display:time_msec", "OFF"));
+        strupper(tmp);
+        state->conf.spy_format |= STREQ(tmp, "OFF") ? 0 : SPY_FORMAT_TIME_RESOLUTION;
+
+        tmp = strdup(iniparser_getstring(ini, "display:port", "OFF"));
+        strupper(tmp);
+        state->conf.spy_format |= STREQ(tmp, "OFF") ? 0 : SPY_FORMAT_PORT_ENABLE;
+
+        tmp = strdup(iniparser_getstring(ini, "display:packet_length", "OFF"));
+        strupper(tmp);
+        state->conf.spy_format |= STREQ(tmp, "OFF") ? 0 : SPY_FORMAT_PKTLEN_ENABLE;
+
 
         state->conf.icon = iniparser_getstring(ini, "station:icon", "/>");
 
@@ -678,7 +735,11 @@ int parse_ini(char *filename, struct state *state)
                 int count;
                 int i;
 
+
                 types = parse_list(tmp, &count);
+
+                printf("debug beacon types count %d, beacon: %s\n", count, tmp);
+
                 if (!types) {
                         printf("Failed to parse beacon types\n");
                         return -EINVAL;
@@ -702,6 +763,8 @@ int parse_ini(char *filename, struct state *state)
         state->conf.metric_units = STREQ(tmp, "METRIC") ? true : false;
 
         tmp = iniparser_getstring(ini, "comments:enabled", "");
+        printf("debug comments count %zd, comment: %s\n", strlen(tmp), tmp);
+
         if (strlen(tmp) != 0) {
                 int i;
 

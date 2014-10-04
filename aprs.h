@@ -3,16 +3,22 @@
 /* dantracker aprs tracker
  *
  * Copyright 2012 Dan Smith <dsmith@danplanet.com>
+ * Copyright 2013-2014 Basil Gunn
  */
 
 #ifndef __APRS__H
 #define __APRS__H
 
 #include <sys/socket.h>
+#include <sys/un.h>
+
+#ifndef CONSOLE_SPY
 #include <fap.h>
 #include <iniparser.h>
+#endif /* NOT CONSOLE_SPY */
 #include <stdbool.h>
 #include <inttypes.h>
+#include <gps.h>
 
 #include "nmea.h"
 
@@ -112,6 +118,34 @@ struct smart_beacon_point {
         float speed;
 };
 
+/* for decompressing winlink packets for spy output */
+typedef struct prop_ctrl {
+        int b2f_state;
+        int b2f_stx_size;
+        bool next_pkt_stx;
+        bool next_pkt_continue;
+        int prop_pending_cnt;
+        int excess_partial_size;
+        int need_partial_size;
+        int cksum;
+        uint8_t *partial_buf;
+        struct buffer *compressed;
+        struct buffer *decomp;
+} prop_ctrl_t;
+
+typedef enum  {
+        GPS_TYPE_FAKE,
+        GPS_TYPE_SERIAL,
+        GPS_TYPE_GPSD,
+        GPS_TYPE_UNDEFINED = -1
+} gps_type_t;
+
+/* Bit definitions for spy display format (spy_format) */
+#define SPY_FORMAT_TIME_ENABLE          0x01
+#define SPY_FORMAT_TIME_RESOLUTION      0x02
+#define SPY_FORMAT_PORT_ENABLE          0x04
+#define SPY_FORMAT_PKTLEN_ENABLE        0x08
+
 struct state {
         struct {
                 char *tnc;
@@ -124,6 +158,7 @@ struct state {
 
                 char *tnc_type;
                 char *gps_type;
+                int gps_type_int;
 
                 char *aprsis_server_host_addr;
                 int aprsis_server_port;
@@ -167,18 +202,26 @@ struct state {
                 int digi_enabled;
                 int digi_append;
                 int digi_delay;
+                union {
+                        struct sockaddr_un afunix;
+                        struct sockaddr afinet;
+                } display_to;
 
-                struct sockaddr display_to;
                 char *ui_sock_path;
                 char *ui_host_name;
                 unsigned int ui_inet_port;
 
                 bool metric_units;
                 bool aprs_message_ack;
+#ifndef CONSOLE_SPY
                 dictionary *ini_dict;
+#endif  /* NOT CONSOLE_SPY */
+
+                int spy_format;
 
         } conf;
 
+        prop_ctrl_t prop_ctrl;                 /* for decompressing winlink packets */
         struct posit mypos[KEEP_POSITS];
         int mypos_idx;
 
@@ -213,21 +256,23 @@ struct state {
         ack_outstand_t ackout[MAX_OUTSTANDING_MSGS];
         int ack_msgid;
 
+#ifndef CONSOLE_SPY
         fap_packet_t *last_packet; /* In case we don't store it below */
         fap_packet_t *recent[KEEP_PACKETS];
+        fap_packet_t *last_wx;
+#endif  /* NOT CONSOLE_SPY */
         int recent_idx;
         int disp_idx;
 
+        struct gps_data_t gpsdata;
         char gps_buffer[128];
-        int gps_idx;
+        int gps_idx;            /* index into gps_buffer for nmea string capture */
         time_t last_gps_update;
         time_t last_gps_data;
         time_t last_beacon;
         time_t last_time_set;
         time_t last_moving;
         time_t last_status;
-
-        fap_packet_t *last_wx;
 
         int comment_idx;
         int other_beacon_idx;
@@ -248,7 +293,12 @@ struct state {
                 char *playback_pkt_filename;
                 int playback_time_scale;
                 int console_display_filter;
+                int verbose_level;
                 bool parse_ini_test;
+                bool display_fap_enable;
+                bool display_spy_enable;
+                bool console_spy_enable;
+                bool b2f_decode_enable;
         } debug;
 };
 
@@ -256,28 +306,34 @@ struct state {
  * defines the header written before each canned packet
  */
 typedef struct recpkt {
-        time_t currtime;
+        uint32_t currtime;
         int size;
 } recpkt_t;
 
+#ifndef CONSOLE_SPY
 
-int parse_ini(char *filename, struct state *state);
-int parse_opts(int argc, char **argv, struct state *state);
-void ini_cleanup(struct state *state);
-int lookup_host(struct state *state);
-char *process_subst(struct state *state, char *src);
 void display_fap_pkt(char *string, fap_packet_t *fap);
-int _ui_send(struct state *state, const char *name, const char *value);
 int store_packet(struct state *state, fap_packet_t *fap);
 fap_packet_t *dan_parseaprs(char *string, int len, int isax25);
 void display_fap_error(char *string, struct state *state, fap_packet_t *fap);
+/* Debug only */
+void fap_free_wrapper(char *dispStr,  struct state *state, fap_packet_t *fap);
+
+#endif /* NOT CONSOLE_SPY */
+
+void handle_ax25_pkt(struct state *state, struct sockaddr *sa, unsigned char *buf, int size);
+
+int parse_ini(char *filename, struct state *state);
+int parse_opts(int argc, char **argv, struct state *state);
+void parse_incoming_packet(struct state *state, char *packet, int len, int isax25);
+void ini_cleanup(struct state *state);
+int lookup_host(struct state *state);
+char *process_subst(struct state *state, char *src);
+int _ui_send(struct state *state, const char *name, const char *value);
 int fake_gps_data(struct state *state);
 
 bool send_kiss_beacon(int fd, char *packet);
 bool send_net_beacon(int fd, char *packet);
 bool send_beacon(struct state *state, char *packet);
-
-/* Debug only */
-void fap_free_wrapper(char *dispStr,  struct state *state, fap_packet_t *fap);
 
 #endif /* APRS_H */
