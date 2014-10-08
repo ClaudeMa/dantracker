@@ -421,12 +421,12 @@ net.createServer(function(sock) {
 
 console.log((new Date()) + 'UI Socket Server listening on ' + NETHOST +':'+ NETPORT);
 
-
 /**
  * ===================== HTML server ========================
  */
 
 var connect = require(global_module_dir + 'connect');
+/* For connect@2.x ONLY, Does not work with connect@3.x
 connect.createServer(
                      connect.static(__dirname),
                      function(req, res){
@@ -434,5 +434,18 @@ connect.createServer(
         res.end('You need a path, try /tracker.html\n');
 }
 ).listen(HTMLPORT);
-console.log('HTML Server listening on port: ' + HTMLPORT);
-});
+*/
+
+var serveStatic = require(global_module_dir + 'serve-static');
+var finalhandler = require(global_module_dir + 'finalhandler');
+
+var app = connect();
+var serve = serveStatic(__dirname, {'index': ['tracker.html']})
+	    // Create server
+	    var server = http.createServer(function(req, res) {
+		    var done = finalhandler(req, res)
+			       serve(req, res, done)
+	    }).listen(HTMLPORT);
+
+	    console.log('HTML Server listening on port: ' + HTMLPORT);
+	});
