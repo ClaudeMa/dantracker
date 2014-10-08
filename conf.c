@@ -569,6 +569,12 @@ int parse_ini(char *filename, struct state *state)
                 state->conf.gps_type_int = GPS_TYPE_SERIAL;
         }
 
+        /* set period in minutes to update system time from gps
+         *  default is once a day */
+        state->conf.gps_time_update = iniparser_getint(ini, "gps:time_update_period", 60*24);
+
+        printf("CONF debug: update time every %d minutes\n", state->conf.gps_time_update);
+
         /* Build the TIER 2 host name */
         tmp = iniparser_getstring(ini, "net:server_host_address", "oregon");
 
@@ -627,7 +633,7 @@ int parse_ini(char *filename, struct state *state)
                  state->basecall, state->myssid);
 
         state->conf.ui_host_name = iniparser_getstring(ini, "ui_net:sock_hostname", "");
-        printf("conf debug: sock_host name string length = %zd\n", strlen(state->conf.ui_host_name));
+        printf("CONF debug: sock_host name string length = %zd\n", strlen(state->conf.ui_host_name));
 
         if (strlen(state->conf.ui_host_name) == 0 ) {
                 state->conf.ui_host_name = NULL;
@@ -738,7 +744,7 @@ int parse_ini(char *filename, struct state *state)
 
                 types = parse_list(tmp, &count);
 
-                printf("debug beacon types count %d, beacon: %s\n", count, tmp);
+                printf("CONF debug beacon types count %d, beacon: %s\n", count, tmp);
 
                 if (!types) {
                         printf("Failed to parse beacon types\n");
@@ -763,7 +769,7 @@ int parse_ini(char *filename, struct state *state)
         state->conf.metric_units = STREQ(tmp, "METRIC") ? true : false;
 
         tmp = iniparser_getstring(ini, "comments:enabled", "");
-        printf("debug comments count %zd, comment: %s\n", strlen(tmp), tmp);
+        printf("CONF debug comments count %zd, comment: %s\n", strlen(tmp), tmp);
 
         if (strlen(tmp) != 0) {
                 int i;
@@ -818,7 +824,7 @@ int parse_ini(char *filename, struct state *state)
                          (double)state->conf.aprsis_range);
         }
 
-        printf("Debug: aprsis filter string: %s\n", state->conf.aprsis_filter);
+        printf("CONF debug: aprsis filter string: %s\n", state->conf.aprsis_filter);
 
         /* Any substitution keys found?
          * Process any static substitution keys */

@@ -1,3 +1,23 @@
+
+
+Wed Oct  8 14:04:03 PDT 2014  Basil Gunn <basil@pacabunga.com>
+
+    * Add config for period of GPS system time setting.
+      Fix gps system time setting for NEMA sentences.
+      Add gps device to canned packet loop.
+      Files modified:
+	README
+	aprs.c
+	aprs.h
+	conf.c
+        examples/aprs_tracker.ini
+
+    * Direction NW (e.g. 300) was displayed as N fix courtesy of dbrooke
+      File modified: util.c
+
+    * Change html server code to support lastest connect() (3.x) version.
+      File modified: webapp/tracker-server.js
+
 Sat Oct  4 09:08:28 PDT 2014  Basil Gunn <basil@pacabunga.com>
 
     * Make project current with UDR dev

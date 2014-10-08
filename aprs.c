@@ -1131,7 +1131,9 @@ void parse_incoming_packet(struct state *state, char *packet, int len, int isax2
                         printf("DEBUG: digipeated packet\n");
                 }
         } else {
-                display_fap_error("incoming pkt", state, fap);
+                if(state->debug.verbose_level > 2) {
+                        display_fap_error("incoming pkt", state, fap);
+                }
                 fap_free_wrapper("incoming pkt", state, fap);
         }
 #ifdef WEBAPP
@@ -1230,56 +1232,61 @@ int display_gps_info(struct state *state)
 }
 
 /*
- * Set system time using GPS
+ * Set system time using GPS time
  */
 int set_time(struct state *state)
 {
         struct posit *mypos = MYPOS(state);
         time_t tstamp = mypos->tstamp;
         time_t dstamp = mypos->dstamp;
-        char timestr[64];
-        int ret;
         int hour, min, sec;
         int day, mon, year;
+        time_t gpstime, machinetime;
+        struct tm *lt, *gtm;
 
+        /*
+         * Only set time if a sufficient number of GPS satellites have
+         * been acquired.
+         */
         if (mypos->qual == 0)
                 return 1; /* No fix, no set */
         else if (mypos->sats < 3) {
                 return 1; /* Not enough sats, don't set */
         }
 
-        /* Only set the Computer system time at boot up & once a day
-         * after boot.
+        /* Only set the Computer system time at boot up & on a period
+         * defined by configuration (in minutes).
+         *
          * Setting system time frequently (every 2 minutes) causes
          * programs that check & verify time like Dovecot to indicate a
          * variation in system time of more than 7 seconds causing bad
          * things to happen.
          */
-        else if (state->last_time_set && !HAS_BEEN(state->last_time_set, 60*60*24)) {
+        else if (state->last_time_set &&
+                 state->conf.gps_time_update &&
+                 !HAS_BEEN(state->last_time_set, state->conf.gps_time_update * 60)) {
                 return 1; /* Too recent */
+        } else if (state->conf.gps_time_update == 0) {
+                return 1; /* Config'ed to not set system time with GPS fix time */
         }
 
+        if((machinetime = time(NULL)) == -1) {
+                fprintf(stderr, "%s: Error getting machine time: %s\n", __FUNCTION__, strerror(errno));
+                return(-1);
+        }
+
+        /*
+         * Handle gps daemon & gps serial devices
+         */
         if(state->conf.gps_type_int == GPS_TYPE_GPSD) {
-                struct tm *pgmtime;
 
-                pgmtime = gmtime(&tstamp);
-                hour = pgmtime->tm_hour;
-                min  = pgmtime->tm_min;
-                sec  = pgmtime->tm_sec;
-                day  = pgmtime->tm_mday;
-                mon  = pgmtime->tm_mon;
-                year = pgmtime->tm_year;
-
-                /* debug only */
-                snprintf(timestr, sizeof(timestr),
-                         "date -u %02i%02i%02i%02i20%02i.%02i",
-                         mon, day,
-                         hour, min,
-                         year, sec);
-
-                printf("Setting system time: %s\n", timestr);
+                gpstime = tstamp;
 
         } else if(state->conf.gps_type_int == GPS_TYPE_SERIAL) {
+
+                lt  = gmtime(&machinetime);
+                gtm = gmtime(&machinetime);
+
                 hour = (tstamp / 10000);
                 min = (tstamp / 100) % 100;
                 sec = tstamp % 100;
@@ -1287,20 +1294,59 @@ int set_time(struct state *state)
                 day = (dstamp / 10000);
                 mon = (dstamp / 100) % 100;
                 year = dstamp % 100;
+                /*
+                 * convert broken down time (struct
+                 * tm) to unix calendar time (time_t)
+                 */
+                gtm->tm_sec = sec;
+                gtm->tm_min = min;
+                gtm->tm_hour = hour;
+                gtm->tm_mday = day;
+                gtm->tm_mon = mon-1; /* number of months since January 0-11 */
+                gtm->tm_year = year+100; /* years since 1900 */
+
+                gpstime = mktime(gtm) + gtm->tm_gmtoff;
+
+                if (lt->tm_isdst < 0) {
+                        printf("Can not determine if Daylight Saving Time is in effect\n");
+                } else {
+                        printf("DST is %s in effect\n", lt->tm_isdst ? "" : "NOT");
+                }
+                /*
+                 * During Daylight saving subtract an hour.
+                 */
+                if(lt->tm_isdst) {
+                        gpstime -=3600;
+                }
+
+                if(state->debug.verbose_level > 3) {
+                        printf("\nloc debug: hr: %d, mn: %d, sc: %d, day: %d, mon: %d, yr: %d off: %ld [%zd]\n",
+                               lt->tm_hour, lt->tm_min, lt->tm_sec, lt->tm_mday, lt->tm_mon, lt->tm_year, lt->tm_gmtoff, machinetime);
+                        printf("gps debug: hr: %d, mn: %d, sc: %d, day: %d, mon: %d, yr: %d off: %ld [%zd]\n",
+                               gtm->tm_hour, gtm->tm_min, gtm->tm_sec, gtm->tm_mday, gtm->tm_mon, gtm->tm_year, gtm->tm_gmtoff, gpstime);
+                        printf("Time: machine %s, gps %s\n", asctime(lt), asctime(gtm));
+                }
+
         } else {
 
                 fprintf(stderr, "%s: gps device not configured\n", __FUNCTION__);
                 return -1;
         }
 
-        snprintf(timestr, sizeof(timestr),
-                 "date -u %02i%02i%02i%02i20%02i.%02i",
-                 mon, day,
-                 hour, min,
-                 year, sec);
+        if(gpstime == machinetime) {
+                printf("***Not setting machine time, gps = machine\n");
+        } else if(gpstime > machinetime) {
+                printf(" *** Setting machine time +%zd\n", gpstime - machinetime);
+        } else {
+                printf(" *** Setting machine time -%zd\n", machinetime - gpstime);
+        }
+        /*
+         * Only set machine time if difference is greater than 1 second.
+         */
+        if(abs(gpstime - machinetime) > 2) {
+                stime(&gpstime);
+        }
 
-        ret = system(timestr);
-        printf("Setting %s: %s\n", timestr, ret == 0 ? "OK" : "FAIL");
         state->last_time_set = time(NULL);
 
         return 0;
@@ -1314,7 +1360,7 @@ int handle_gps_data(struct state *state)
 
         switch(state->conf.gps_type_int) {
 
-                /* Serial port gets GPS data in NMEA format */
+                /* Serial port gets GPS data in NMEA 0183 sentence format */
                 case GPS_TYPE_SERIAL:
                         ret = read(state->gpsfd, buf, 32);
                         buf[ret] = 0; /* Safe because size is +1 */
@@ -1344,7 +1390,7 @@ int handle_gps_data(struct state *state)
                         }
 
                         break;
-                        /* GPSD gets data in some binary format */
+                        /* GPSD gets data in a binary format */
                 case GPS_TYPE_GPSD:
                 {
                         struct posit *mypos;
@@ -2261,7 +2307,7 @@ int canned_packets(struct state *state)
         int cnt_pkts = 0;
         int cnt_bytes = 0;
         recpkt_t recpkt;
-        time_t last_time, wait_time;
+        time_t last_time, wait_time, pending_time;
         struct sockaddr sa;
         FILE *fsrecpkt;
         int *uifd = &state->dspfd;
@@ -2293,59 +2339,66 @@ int canned_packets(struct state *state)
         last_time = recpkt.currtime;
 
         strcpy(sa.sa_data, "File");
+        pending_time = 0;
 
         while(bytes_read > 0) {
-                if ((bytes_read = fread(&recpkt, sizeof(recpkt_t), 1, fsrecpkt)) != 1) {
-                        if(bytes_read == 0) {
-                                printf("\nFinished reading all %d packets, %zu bytes\n\n",
-                                       cnt_pkts, cnt_bytes + cnt_pkts*sizeof(recpkt_t));
-                                /* continuously display packets, so rewind & continue */
-                                rewind(fsrecpkt);
-                                if ((bytes_read = fread(&recpkt, sizeof(recpkt_t), 1, fsrecpkt)) != 1) {
-                                        printf("Failed to rewind file, exiting\n");
-                                        break;
+                if (pending_time == 0) {
+                        if ((bytes_read = fread(&recpkt, sizeof(recpkt_t), 1, fsrecpkt)) != 1) {
+                                if(bytes_read == 0) {
+                                        printf("\nFinished reading all %d packets, %zu bytes\n\n",
+                                               cnt_pkts, cnt_bytes + cnt_pkts*sizeof(recpkt_t));
+                                        /* continuously display packets, so rewind & continue */
+                                        rewind(fsrecpkt);
+                                        if ((bytes_read = fread(&recpkt, sizeof(recpkt_t), 1, fsrecpkt)) != 1) {
+                                                printf("Failed to rewind file, exiting\n");
+                                                break;
+                                        }
+                                }  else {
+                                        fprintf(stderr, "%s: Error reading file: 0x%02x %s %s\n",
+                                                  __FUNCTION__, errno, strerror(errno), state->debug.playback_pkt_filename);
+                                        return errno;
                                 }
-                        }  else {
-                                fprintf(stderr, "%s: Error reading file: 0x%02x %s %s\n",
-                                          __FUNCTION__, errno, strerror(errno), state->debug.playback_pkt_filename);
-                                return errno;
                         }
+                        pkt_size = recpkt.size;
+
+                        bytes_read = fread(inbuf, 1, pkt_size, fsrecpkt);
+                        if(bytes_read != pkt_size) {
+                                printf("Read error expected %d, read %d\n",
+                                       pkt_size, bytes_read);
+                                break;
+                        }
+
+                        cnt_pkts++;
+                        cnt_bytes += bytes_read;
+
+                        if(state->debug.verbose_level > 3) {
+                                printf("Pkt count %d, size %d, time %s ... ",
+                                       cnt_pkts, pkt_size, time2str((time_t *)&recpkt.currtime, 0));
+                        }
+
+                        /* pace the packets */
+                        wait_time = recpkt.currtime - last_time;
+
+                        if(state->debug.verbose_level > 3) {
+                                printf("Wait %lu secs", wait_time);
+                        }
+
+                        /* Pace packets quicker than reality */
+                        if(wait_time > 0)
+                                wait_time = wait_time / state->debug.playback_time_scale;
+
+                        if(wait_time < 0 || wait_time > 5*60) {
+                                printf("Wait time seems unreasonable %lu\n", wait_time);
+                                wait_time = 60;
+                        }
+                        last_time = recpkt.currtime;
+                        tv.tv_sec = wait_time;
+                        pending_time = time(NULL) + wait_time;
+
+                } else {
+                        wait_time = pending_time - time(NULL);
+                        tv.tv_sec = wait_time > 0 ? wait_time : 0;
                 }
-                pkt_size = recpkt.size;
-
-                bytes_read = fread(inbuf, 1, pkt_size, fsrecpkt);
-                if(bytes_read != pkt_size) {
-                        printf("Read error expected %d, read %d\n",
-                               pkt_size, bytes_read);
-                        break;
-                }
-
-                cnt_pkts++;
-                cnt_bytes += bytes_read;
-
-                if(state->debug.verbose_level > 3) {
-                        printf("Pkt count %d, size %d, time %s ... ",
-                               cnt_pkts, pkt_size, time2str((time_t *)&recpkt.currtime, 0));
-                }
-
-                /* pace the packets */
-                wait_time = recpkt.currtime - last_time;
-
-                if(state->debug.verbose_level > 3) {
-                        printf("Wait %lu secs", wait_time);
-                }
-
-                /* Pace packets quicker than reality */
-                if(wait_time > 0)
-                        wait_time = wait_time / state->debug.playback_time_scale;
-
-                if(wait_time < 0 || wait_time > 5*60) {
-                        printf("Wait time seems unreasonable %lu\n", wait_time);
-                        wait_time = 60;
-                }
-                last_time = recpkt.currtime;
-
-                tv.tv_sec = wait_time;
                 /* node server gets recursive interrupts intermittently.
                  * - slow the pacing down to see if that helps */
                 tv.tv_usec = (wait_time == 0) ? 500 : 0;
@@ -2356,6 +2409,7 @@ int canned_packets(struct state *state)
                 }
 
                 FD_ZERO(&fds);
+
                 if (state->dspfd > 0)
                         FD_SET(state->dspfd, &fds);
                 if (state->gpsfd > 0)
@@ -2370,17 +2424,18 @@ int canned_packets(struct state *state)
                 } else if (ret > 0) {
                         if( (state->gpsfd != -1) && FD_ISSET(state->gpsfd, &fds)) {
                                 handle_gps_data(state);
-                                printf("g"); fflush(stdout);
+/*                                printf("g"); fflush(stdout); */
                         }
                         if(FD_ISSET(state->dspfd, &fds)) {
                                 handle_display(state);
                         }
                 }
-                handle_ax25_pkt(state, &sa, &inbuf[1], bytes_read-1);
-
-                //                handle_display(state);
+                if(time(NULL) >= pending_time) {
+                        handle_ax25_pkt(state, &sa, &inbuf[1], bytes_read-1);
+                        pending_time = 0;
                 }
-                return 0;
+        }
+        return 0;
 }
 
 int main(int argc, char **argv)

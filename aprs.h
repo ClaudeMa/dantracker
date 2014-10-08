@@ -159,6 +159,7 @@ struct state {
                 char *tnc_type;
                 char *gps_type;
                 int gps_type_int;
+                int gps_time_update;
 
                 char *aprsis_server_host_addr;
                 int aprsis_server_port;
