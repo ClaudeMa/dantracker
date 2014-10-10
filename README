@@ -29,9 +29,10 @@ libiniparser:
   sudo cp libiniparser.* /usr/local/lib
 
 gpsd: Optional for GPS daemon
+  Build controlled by GPSD_ENABLE variable in Makefile
   http://www.catb.org/gpsd/installation.html
   Installed from package.
-   - require: libgps-dev
+   - require: gpsd, libgps-dev
   Verify library libgps is installed: ldconfig -p | grep gps
   Test installation with something like this:
   gpsd -D 5 -N -n /dev/ttyUSB0
