@@ -18,8 +18,9 @@
 #endif /* NOT CONSOLE_SPY */
 #include <stdbool.h>
 #include <inttypes.h>
+#ifdef HAVE_GPSD_LIB
 #include <gps.h>
-
+#endif /* HAVE_GPSD_LIB */
 #include "nmea.h"
 
 #define TRACKER_MAJOR_VERSION 0
@@ -265,7 +266,9 @@ struct state {
         int recent_idx;
         int disp_idx;
 
+#ifdef HAVE_GPSD_LIB
         struct gps_data_t gpsdata;
+#endif /* HAVE_GPSD_LIB */
         char gps_buffer[128];
         int gps_idx;            /* index into gps_buffer for nmea string capture */
         time_t last_gps_update;

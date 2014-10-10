@@ -1320,9 +1320,9 @@ int set_time(struct state *state)
                 }
 
                 if(state->debug.verbose_level > 3) {
-                        printf("\nloc debug: hr: %d, mn: %d, sc: %d, day: %d, mon: %d, yr: %d off: %ld [%zd]\n",
+                        printf("\nloc debug: hr: %d, mn: %d, sc: %d, day: %d, mon: %d, yr: %d off: %ld [%ld]\n",
                                lt->tm_hour, lt->tm_min, lt->tm_sec, lt->tm_mday, lt->tm_mon, lt->tm_year, lt->tm_gmtoff, machinetime);
-                        printf("gps debug: hr: %d, mn: %d, sc: %d, day: %d, mon: %d, yr: %d off: %ld [%zd]\n",
+                        printf("gps debug: hr: %d, mn: %d, sc: %d, day: %d, mon: %d, yr: %d off: %ld [%ld]\n",
                                gtm->tm_hour, gtm->tm_min, gtm->tm_sec, gtm->tm_mday, gtm->tm_mon, gtm->tm_year, gtm->tm_gmtoff, gpstime);
                         printf("Time: machine %s, gps %s\n", asctime(lt), asctime(gtm));
                 }
@@ -1336,9 +1336,9 @@ int set_time(struct state *state)
         if(gpstime == machinetime) {
                 printf("***Not setting machine time, gps = machine\n");
         } else if(gpstime > machinetime) {
-                printf(" *** Setting machine time +%zd\n", gpstime - machinetime);
+                printf(" *** Setting machine time +%ld\n", gpstime - machinetime);
         } else {
-                printf(" *** Setting machine time -%zd\n", machinetime - gpstime);
+                printf(" *** Setting machine time -%ld\n", machinetime - gpstime);
         }
         /*
          * Only set machine time if difference is greater than 1 second.
@@ -1393,6 +1393,7 @@ int handle_gps_data(struct state *state)
                         /* GPSD gets data in a binary format */
                 case GPS_TYPE_GPSD:
                 {
+#ifdef HAVE_GPSD_LIB
                         struct posit *mypos;
                         struct gps_data_t *pgpsd= &state->gpsdata;
                         time_t curtime;
@@ -1433,7 +1434,7 @@ int handle_gps_data(struct state *state)
                                 }
                                 printf("\n");
                         }
-#endif
+#endif /* DEBUG_GPS */
                         /* Fill in the position struct posit */
                         state->mypos_idx = (state->mypos_idx + 1) % KEEP_POSITS;
                         mypos = MYPOS(state);
@@ -1479,8 +1480,12 @@ int handle_gps_data(struct state *state)
                                         break;
                         }
                         mypos->sats = pgpsd->satellites_visible;
+#else
+                        fprintf(stderr, "%s: gpsd daemon not configured\n", __FUNCTION__);
+#endif /* HAVE_GPSD_LIB */
                 }
                 break;
+
                 case GPS_TYPE_FAKE:
                         fake_gps_data(state);
                         break;
@@ -2261,6 +2266,7 @@ int gps_init(struct state *state)
                         break;
 
                 case GPS_TYPE_GPSD:
+#ifdef HAVE_GPSD_LIB
                         if(state->debug.verbose_level > 2) {
                                 printf("%s: GPSD\n", __FUNCTION__);
                         }
@@ -2280,7 +2286,11 @@ int gps_init(struct state *state)
                                 perror("gps_stream()");
                                 return(-1);
                         }
+#else
+                        fprintf(stderr, "%s: gpsd daemon not configured\n", __FUNCTION__);
+#endif /* HAVE_GPSD_LIB */
                         break;
+
                 case GPS_TYPE_FAKE:
                         if(state->debug.verbose_level > 2) {
                                 printf("%s: fake\n", __FUNCTION__);

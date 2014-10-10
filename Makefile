@@ -5,6 +5,7 @@ SHELL:=/bin/bash
 DEBUG_ON=YES
 GTKAPP_ENABLE=NO
 WEBAPP_ENABLE=YES
+GPSD_ENABLE=YES
 
 DEST="root@beagle:carputer"
 
@@ -26,6 +27,12 @@ ifeq ($(GTKAPP_ENABLE), YES)
 GTK_CFLAGS = `pkg-config --cflags 'gtk+-2.0'`
 GTK_LIBS = `pkg-config --libs 'gtk+-2.0'`
 TARGETS += ui uiclient
+endif
+
+LIB_GPS = 
+ifeq ($(GPSD_ENABLE), YES)
+LIB_GPS = -lgps
+CFLAGS+= -DHAVE_GPSD_LIB
 endif
 
 LIBAX25=$(shell ./conftest.sh)
@@ -84,7 +91,7 @@ aprs: aprs.o uiclient.o nmea.o aprs-is.o serial.o aprs-ax25.o aprs-msg.o conf.o 
 #	@echo "libs: $(LIBS), cflags: $(CFLAGS), libax25: $(LIBAX25), build: $(BUILD), rev: $(REVISION)"
 	@if [ "$(LIBAX25)" = "" ]; then echo; echo "AX.25 stack not installed";echo; fi
 	echo $$((`cat .build` + 1)) > .build
-	$(CC) $(CFLAGS) -o $@ $^  -lm $(LIBS) -lgps
+	$(CC) $(CFLAGS) -o $@ $^  -lm $(LIBS) $(LIB_GPS)
 
 ui: ui.c uiclient.o aprs.h ui.h util.c util.h
 	$(CC) $(CFLAGS) -DAPRS_IMG_MULT=${APRS_IMG_MULT} $(GTK_CFLAGS) $(GLIB_CFLAGS) $^ -o $@ $(GTK_LIBS) $(GLIB_LIBS) $(LIBS)
