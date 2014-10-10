@@ -70,12 +70,14 @@ void ui_unix_sock_wait(struct state *state)
 int ui_connect(struct state *state)
 {
 	int sock;
+        char buf[32];
         struct sockaddr *dest =  &state->conf.display_to.afinet;
-        unsigned int dest_len = sizeof(state->conf.display_to);
+        unsigned int dest_len = sizeof(struct sockaddr);
 
         if(state->conf.display_to.afinet.sa_family == AF_UNIX) {
                 /* clean-up previous socket */
                 ui_unix_sock_wait(state);
+                dest_len = sizeof(struct sockaddr_un);
         }
 
 	sock = socket(dest->sa_family, SOCK_STREAM, 0);
@@ -90,8 +92,11 @@ int ui_connect(struct state *state)
 		close(sock);
 		return -errno;
 	} else {
+                sprintf(buf, "%d", state->conf.ui_inet_port);
                 printf("UI Socket %s, connected with sock %d\n",
-                       state->conf.ui_sock_path, sock);
+                       state->conf.display_to.afinet.sa_family == AF_UNIX ?
+                       state->conf.ui_sock_path : buf,
+                       sock);
         }
 
 	return sock;

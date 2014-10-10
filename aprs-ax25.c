@@ -625,12 +625,14 @@ void ui_sock_cfg(struct state *state)
          * the AF_UNIX family with socket path parsed from ini file.
          */
         if(state->conf.ui_host_name != NULL) {
+                printf("%s: Using protocol AF_INET, host name %s\n", __FUNCTION__, state->conf.ui_host_name);
                 if(lookup_host(state)) {
                         printf("Failure connecting to display device\n");
                         exit(1);
                 }
 
         } else {
+                printf("%s: protocol AF_UNIX\n", __FUNCTION__);
                 state->conf.display_to.afinet.sa_family = AF_UNIX;
                 strcpy((&state->conf.display_to.afunix)->sun_path,
                        state->conf.ui_sock_path);
@@ -711,7 +713,7 @@ void ui_net_sock_avail(struct state *state, int sockfd)
 int ui_connect(struct state *state)
 {
         int sock;
-        char buf[16];
+        char buf[32];
 
         struct sockaddr *dest =  &state->conf.display_to.afinet;
         unsigned int dest_len = sizeof(struct sockaddr);
@@ -752,7 +754,7 @@ int ui_connect(struct state *state)
 
         return sock;
 }
-#endif /* CONSOLE_SPY */
+#endif /* NOT CONSOLE_SPY */
 
 void handle_kiss_param(int type, int val) {
 
