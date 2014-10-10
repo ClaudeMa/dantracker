@@ -426,6 +426,7 @@ console.log((new Date()) + 'UI Socket Server listening on ' + NETHOST +':'+ NETP
  */
 
 var connect = require(global_module_dir + 'connect');
+
 /* For connect@2.x ONLY, Does not work with connect@3.x
 connect.createServer(
                      connect.static(__dirname),

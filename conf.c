@@ -573,7 +573,7 @@ int parse_ini(char *filename, struct state *state)
          *  default is once a day */
         state->conf.gps_time_update = iniparser_getint(ini, "gps:time_update_period", 60*24);
 
-        printf("CONF debug: update time every %d minutes\n", state->conf.gps_time_update);
+        printf("CONF debug: gps system update time every %d minutes\n", state->conf.gps_time_update);
 
         /* Build the TIER 2 host name */
         tmp = iniparser_getstring(ini, "net:server_host_address", "oregon");

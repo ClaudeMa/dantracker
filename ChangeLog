@@ -1,4 +1,27 @@
 
+Fri Oct 10 10:24:02 PDT 2014  Basil Gunn <basil@pacabunga.com>
+
+    * Make gpsd Makefile conditional for running on a VM.
+    * Fix ARM build problem.
+      Files modified:
+        Makefile
+        aprs.c
+        aprs.h
+
+    * Fix doc describing dependencies for gpsd.
+      File modified: README
+
+    * Fix display of which UI protocol is used.
+      Files modified:
+        aprs-ax25.c
+        uiclient.c
+
+    * Minor cosmetic edits.
+      Files modified:
+        conf.c
+        examples/aprs_tracker.ini
+        webapp/spy.html
+        webapp/tracker-server.js
 
 Wed Oct  8 14:04:03 PDT 2014  Basil Gunn <basil@pacabunga.com>
 
@@ -6,13 +29,13 @@ Wed Oct  8 14:04:03 PDT 2014  Basil Gunn <basil@pacabunga.com>
       Fix gps system time setting for NEMA sentences.
       Add gps device to canned packet loop.
       Files modified:
-	README
-	aprs.c
-	aprs.h
-	conf.c
+        README
+        aprs.c
+        aprs.h
+        conf.c
         examples/aprs_tracker.ini
 
-    * Direction NW (e.g. 300) was displayed as N fix courtesy of dbrooke
+    * Direction NW (e.g. 300) was displayed as N, fix courtesy of dbrooke.
       File modified: util.c
 
     * Change html server code to support lastest connect() (3.x) version.
@@ -26,23 +49,23 @@ Sat Oct  4 09:08:28 PDT 2014  Basil Gunn <basil@pacabunga.com>
       File added: ipdump.c
       Files modified:
         Makefile
-	README
-	aprs-ax25.c
-	aprs.c
-	aprs.h
-	ax25dump.c
-	conf.c
-	examples/aprs_tracker.ini
-	monixd.h
-	nmea.c
-	nmea.h
-	uiclient.c
-	util.c
-	util.h
-	webapp/spy-frontend.js
-	webapp/spy-server.js
-	webapp/tracker-frontend.js
-	webapp/tracker-server.js
+        README
+        aprs-ax25.c
+        aprs.c
+        aprs.h
+        ax25dump.c
+        conf.c
+        examples/aprs_tracker.ini
+        monixd.h
+        nmea.c
+        nmea.h
+        uiclient.c
+        util.c
+        util.h
+        webapp/spy-frontend.js
+        webapp/spy-server.js
+        webapp/tracker-frontend.js
+        webapp/tracker-server.js
 
 Sat Jul  6 10:52:27 PDT 2013  Basil Gunn <basil@pacabunga.com>
 
