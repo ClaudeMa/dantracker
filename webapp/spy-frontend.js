@@ -35,7 +35,7 @@ $(function () {
         var maxMsgItems = 1000;
 
         /* Address of machine hosting aprs-ax25 & node.js */
-        var WebIpSock="1348";
+        var WebIpSock="57334";
         spyDebugWin.append('<p>' + 'Using hostname: ' + WebIpAddr + ' with sock: ' + WebIpSock + '</p>');
 
 	// if user is running mozilla then use it's built-in WebSocket

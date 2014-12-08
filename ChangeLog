@@ -1,3 +1,9 @@
+Mon Dec  8 14:32:51 PST 2014  Basil Gunn <basil@pacabunga.com>
+
+    * Fix websock_port config to use higher port number.
+      Files modified:
+	examples/aprs_spy.ini
+	webapp/spy-frontend.js
 
 Fri Oct 10 10:24:02 PDT 2014  Basil Gunn <basil@pacabunga.com>
 
