@@ -1,3 +1,12 @@
+
+Mon Dec  8 15:19:19 PST 2014  Basil Gunn <basil@pacabunga.com>
+
+    * Update for using libfap 1.4
+      Files modified:
+	README
+	aprs.c
+        fap_patch.n7nix
+
 Mon Dec  8 14:32:51 PST 2014  Basil Gunn <basil@pacabunga.com>
 
     * Fix websock_port config to use higher port number.

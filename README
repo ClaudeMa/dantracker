@@ -5,10 +5,10 @@ Dependencies:
 
 libfap:
   http://pakettiradio.net/libfap/
-  wget http://pakettiradio.net/downloads/libfap/1.3/libfap-1.3.tar.gz
-  tar -zxvf libfap-1.3.tar.gz
+  wget http://pakettiradio.net/downloads/libfap/1.4/libfap-1.4.tar.gz
+  tar -zxvf libfap-1.4.tar.gz
 
-  cd libfap-1.3
+  cd libfap-1.4
 # apply fap patch
   patch -p2 < ./<path_to_tracker_src>/fap_patch.n7nix
   sudo cp src/fap.h /usr/local/include/
@@ -108,7 +108,7 @@ repository against its source tree. You need to supply the directory
 path to dantracker source.
 
 
-cd libfap-1.3
+cd libfap-1.4
 patch -p2 < ./<path_to_tracker_src>/fap_patch.n7nix
 
 

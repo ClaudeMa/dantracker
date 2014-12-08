@@ -586,12 +586,12 @@ void display_telemetry(struct state *state, fap_telemetry_t *fap)
         char *data = NULL;
         int ret;
 
-        ret = asprintf(&data, "Telemetry #%03i", fap->seq);
+        ret = asprintf(&data, "Telemetry #%03i", *fap->seq);
         _ui_send(state, "AI_COURSE", ret == -1 ? "" : data);
         free(data);
 
         ret = asprintf(&data, "%.0f %.0f %.0f %.0f %.0f %8.8s",
-                       fap->val1, fap->val2, fap->val3, fap->val4, fap->val5,
+                       *fap->val1, *fap->val2, *fap->val3, *fap->val4, *fap->val5,
                        fap->bits);
         _ui_send(state, "AI_COMMENT", ret == -1 ? "" : data);
         free(data);
