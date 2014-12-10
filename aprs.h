@@ -23,8 +23,9 @@
 #endif /* HAVE_GPSD_LIB */
 #include "nmea.h"
 
-#define TRACKER_MAJOR_VERSION 0
-#define TRACKER_MINOR_VERSION 2
+#define TRACKER_MAJOR_VERSION 1
+#define TRACKER_MINOR_VERSION 1
+#define TRACKER_BUILD 180
 
 #define MAX_AX25_DIGIS 8        /* Maximum number of digipeaters: */
 #define MAX_APRS_MSG_LEN (67)
@@ -329,6 +330,7 @@ void handle_ax25_pkt(struct state *state, struct sockaddr *sa, unsigned char *bu
 
 int parse_ini(char *filename, struct state *state);
 int parse_opts(int argc, char **argv, struct state *state);
+void show_version(void);
 void parse_incoming_packet(struct state *state, char *packet, int len, int isax25);
 void ini_cleanup(struct state *state);
 int lookup_host(struct state *state);

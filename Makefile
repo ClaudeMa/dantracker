@@ -36,11 +36,16 @@ CFLAGS+= -DHAVE_GPSD_LIB
 endif
 
 LIBAX25=$(shell ./conftest.sh)
-BUILD=$(shell cat .build)
-REVISION=$(shell cat .revision)
 
-CFLAGS+=-DBUILD="\"$(BUILD)\"" -DREVISION="\"$(REVISION)\""
-CFLAGS_NOWEB+=-DBUILD="\"$(BUILD)\"" -DREVISION="\"$(REVISION)\""
+# If not building on a dev machine get build number from header file
+ifeq (,$(wildcard .git))
+   BUILD:="$(shell grep "TRACKER_BUILD" aprs.h | cut -d' ' -f3)"
+else
+   BUILD:="$(shell LC_ALL=C git log --oneline | wc -l)"
+endif
+
+CFLAGS+=-DBUILD=$(BUILD)
+CFLAGS_NOWEB+=-DBUILD=$(BUILD)
 
 ifeq ($(LIBAX25), -lax25)
 TARGETS+= aprs-ax25
@@ -88,9 +93,8 @@ faptest.o: faptest.c
 
 
 aprs: aprs.o uiclient.o nmea.o aprs-is.o serial.o aprs-ax25.o aprs-msg.o conf.o util.o ax25dump.o ipdump.o crc.o
-#	@echo "libs: $(LIBS), cflags: $(CFLAGS), libax25: $(LIBAX25), build: $(BUILD), rev: $(REVISION)"
+#	@echo "libs: $(LIBS), cflags: $(CFLAGS), libax25: $(LIBAX25), build: $(BUILD)"
 	@if [ "$(LIBAX25)" = "" ]; then echo; echo "AX.25 stack not installed";echo; fi
-	echo $$((`cat .build` + 1)) > .build
 	$(CC) $(CFLAGS) -o $@ $^  -lm $(LIBS) $(LIB_GPS)
 
 ui: ui.c uiclient.o aprs.h ui.h util.c util.h
@@ -121,7 +125,10 @@ clean:
 	rm -f $(TARGETS) aprs-spy *.o *~ ./images/*_big.png
 
 sync:
-	scp -r *.c *.h Makefile tools images .revision .build $(DEST)
+	scp -r *.c *.h Makefile tools images $(DEST)
+
+buildnum:
+	@echo $(BUILD)
 
 # copy node.js files to /usr/share/dantracker/
 # use rsync to create possible missing directories

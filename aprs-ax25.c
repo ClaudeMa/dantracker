@@ -1016,7 +1016,6 @@ int main(int argc, char **argv)
         } else {
                 program_name = argv[0];
         }
-        printf("%s v0.1.%04i (%s)\n", program_name, atoi(BUILD), REVISION);
 
         memset(&state, 0, sizeof(state));
 #ifndef CONSOLE_SPY
@@ -1031,6 +1030,11 @@ int main(int argc, char **argv)
                 printf("Invalid config\n");
                 exit(1);
         }
+# else
+        printf("%s v%d.%02d(%d)\n", program_name,
+               TRACKER_MAJOR_VERSION,
+               TRACKER_MINOR_VERSION,
+               BUILD);
 #endif /* NOT CONSOLE_SPY */
         /* Force spy display on */
         state.debug.display_spy_enable = true;

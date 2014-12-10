@@ -30,14 +30,6 @@
 #include "aprs-ax25.h"
 #include "aprs-msg.h"
 
-#ifndef BUILD
-#define BUILD 0
-#endif
-
-#ifndef REVISION
-#define REVISION "Unknown"
-#endif
-
 
 void fap_free_wrapper(char *dispStr,  struct state *state, fap_packet_t *fap)
 {
@@ -2458,11 +2450,6 @@ int main(int argc, char **argv)
         memset(&state, 0, sizeof(state));
 
         state.dspfd = -1;
-
-        printf("APRS v%d.%02d.%04i (%s)\n",
-               TRACKER_MAJOR_VERSION,
-               TRACKER_MINOR_VERSION,
-               atoi(BUILD), REVISION);
 
         fap_init();
 

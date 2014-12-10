@@ -21,6 +21,9 @@
 #include "ui.h"
 #include "util.h"
 
+extern char *__progname;
+const char * getprogname(void);
+
 #define TIER2_HOST_NAME ".aprs2.net"
 
 /*
@@ -40,6 +43,19 @@ key_subst_t keys[] = {
         {NULL, 0}
 };
 
+const char * getprogname(void)
+{
+        return __progname;
+}
+
+void show_version(void)
+{
+        printf("%s v%d.%02d(%d)\n", getprogname(),
+               TRACKER_MAJOR_VERSION,
+               TRACKER_MINOR_VERSION,
+               BUILD);
+}
+
 void usage(char *argv0)
 {
         printf("Usage:\n"
@@ -51,6 +67,7 @@ void usage(char *argv0)
                "  --telemetry, -T  Serial port for telemetry\n"
                "  --testing        Testing mode (faked speed, course, digi)\n"
                "  --verbose, -v    Log to stdout\n"
+               "  --Version, -V    Display version\n"
                "  --conf, -c       Configuration file to use\n"
                "  --display, -d    Host to use for display over INET socket\n"
                "  --netrange, -r   Range (miles) to use for APRS-IS filter\n"
@@ -94,6 +111,7 @@ int parse_opts(int argc, char **argv, struct state *state)
                 {"telemetry", 1, 0, 'T'},
                 {"testing",   0, 0,  1 },
                 {"verbose",   0, 0, 'v'},
+                {"Version",   0, 0, 'V'},
                 {"conf",      1, 0, 'c'},
                 {"display",   1, 0, 'd'},
                 {"netrange",  1, 0, 'r'},
@@ -108,7 +126,7 @@ int parse_opts(int argc, char **argv, struct state *state)
                 int c;
                 int optidx;
 
-                c = getopt_long(argc, argv, "mht:g:T:c:svd:r:",
+                c = getopt_long(argc, argv, "mht:g:T:c:svVd:r:",
                                 lopts, &optidx);
                 if (c == -1)
                         break;
@@ -132,6 +150,9 @@ int parse_opts(int argc, char **argv, struct state *state)
                         case 'v':
                                 state->conf.verbose = 1;
                                 break;
+                        case 'V':
+                                show_version();
+                                exit(1);
                         case 'c':
                                 state->conf.config = optarg;
                                 break;
@@ -297,10 +318,10 @@ char *get_keysubst(struct state *state, int keyind)
                         asprintf(&value, "%i", MYPOS(state)->sats);
                         break;
                 case 5: /* ver */
-                        asprintf(&value, "v%d.%02d.%04d (%s)",
+                        asprintf(&value, "v%d.%02d(%d)",
                                  TRACKER_MAJOR_VERSION,
                                  TRACKER_MINOR_VERSION,
-                                 atoi(BUILD), REVISION);
+                                 BUILD);
                         break;
                 case 6: /* time */
                         t = time(NULL);

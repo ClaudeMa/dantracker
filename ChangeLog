@@ -1,3 +1,17 @@
+Wed Dec 10 12:40:48 PST 2014  Basil Gunn <basil@pacabunga.com>
+version: 1.01(180)
+
+    * New version tracking implemented.
+      Major & minor version defs are in aprs.h
+      Build number evaluated from version control.
+      Files modified:
+        apps/trunk/aprs/plutracker/aprs.c
+        apps/trunk/aprs/plutracker/aprs.h
+        apps/trunk/aprs/plutracker/aprs-ax25.c
+        apps/trunk/aprs/plutracker/aprs-is.c
+        apps/trunk/aprs/plutracker/conf.c
+        apps/trunk/aprs/plutracker/Makefile
+      File deleted: .build
 
 Mon Dec  8 15:19:19 PST 2014  Basil Gunn <basil@pacabunga.com>
 

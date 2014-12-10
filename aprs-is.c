@@ -116,7 +116,6 @@ int main(int argc, char **argv)
         } else {
                 program_name = argv[0];
         }
-        printf("%s v0.1.%04i (%s)\n", program_name, atoi(BUILD), REVISION);
 
 	memset(&state, 0, sizeof(state));
         fap_init();
