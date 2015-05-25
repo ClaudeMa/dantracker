@@ -25,7 +25,7 @@
 
 #define TRACKER_MAJOR_VERSION 1
 #define TRACKER_MINOR_VERSION 1
-#define TRACKER_BUILD 180
+#define TRACKER_BUILD 181
 
 #define MAX_AX25_DIGIS 8        /* Maximum number of digipeaters: */
 #define MAX_APRS_MSG_LEN (67)

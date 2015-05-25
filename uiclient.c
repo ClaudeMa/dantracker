@@ -208,6 +208,7 @@ int ui_get_json_msg(struct state *state, struct ui_msg **msg, struct ui_msg *hdr
         int json_len;
 	int ret;
         int sock = state->dspfd;
+        bool found;
 
 	memset(json_str, 0, RBUFSIZE);
 
@@ -228,8 +229,17 @@ int ui_get_json_msg(struct state *state, struct ui_msg **msg, struct ui_msg *hdr
 		new_obj = json_tokener_parse(json_str);
 		printf("json str: %s\n", json_str);
 		printf("new_obj.to_string()=%s\n", json_object_to_json_string(new_obj));
-		type_obj = json_object_object_get(new_obj, "type");
-		data_obj = json_object_object_get(new_obj, "data");
+                found = json_object_object_get_ex(new_obj, "type", &type_obj);
+                if(!found) {
+                        fprintf(stderr, "%s: Failed to fetch 'type' object\n",
+                                  __FUNCTION__);
+                }
+
+                found = json_object_object_get_ex(new_obj, "data", &data_obj);
+                if(!found) {
+                        fprintf(stderr, "%s: Failed to fetch 'data' object\n",
+                                  __FUNCTION__);
+                }
 
                 type_str = (char *)json_object_get_string(type_obj);
 #ifdef DEBUG_VERBOSE
@@ -239,11 +249,24 @@ int ui_get_json_msg(struct state *state, struct ui_msg **msg, struct ui_msg *hdr
 		if(STREQ(type_str, "message")) {
 #if 0 /* reference, currently not used */
 			json_object *from_obj;
-			from_obj = json_object_object_get(data_obj, "from");
+                        found = json_object_object_get_ex(data_obj, "from", &from_obj);
+                        if(!found) {
+                                fprintf(stderr, "%s: Failed to fetch 'from' object\n",
+                                          __FUNCTION__);
+                        }
 #endif /* reference */
 
-			to_obj = json_object_object_get(data_obj, "sendto");
-                        msg_obj = json_object_object_get(data_obj, "text");
+                        found = json_object_object_get_ex(data_obj, "sendto", &to_obj);
+                        if(!found) {
+                                fprintf(stderr, "%s: Failed to fetch 'sendto' object\n",
+                                          __FUNCTION__);
+                        }
+
+                        found = json_object_object_get_ex(data_obj, "text", &msg_obj);
+                        if(!found) {
+                                fprintf(stderr, "%s: Failed to fetch 'text' object\n",
+                                          __FUNCTION__);
+                        }
 #ifdef DEBUG_VERBOSE
 			printf("json to: %s, msg: %s\n",
 			       json_object_get_string(to_obj),

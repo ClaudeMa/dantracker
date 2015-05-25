@@ -1,3 +1,21 @@
+Mon May 25 11:10:19 PDT 2015  Basil Gunn <basil@pacabunga.com>
+version: 1.01(181)
+
+    * Update for using libfap 1.5, fixes a couple of seg faults.
+      Files modified:
+	aprs.c
+        aprs.h
+        fap_patch.n7nix
+	README
+
+    * Define USE_SOCK_PACKET to conditionalize using AF_INET/SOCK_PACKET when
+      opening a socket. Kept around in case needed on older versions
+      of Linux. Use PF_PACKET/SOCK_RAW instead.
+      File modified: aprs-ax25.c
+
+    * Add error check when getting a new json object.
+      File modified: apps/trunk/aprs/uiclient.c
+
 Wed Dec 10 12:40:48 PST 2014  Basil Gunn <basil@pacabunga.com>
 version: 1.01(180)
 

@@ -19,15 +19,20 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
+
 #include <netinet/in.h>
+#include <netinet/if_ether.h>
 #include <netdb.h>
 #include <netax25/ax25.h>
 #include <net/if.h>
-#include <netinet/if_ether.h>
+#include <net/if_arp.h>
+#include <linux/if_packet.h>
 #include <netax25/axlib.h>
 #include <netax25/axconfig.h>
+
 #include <stdbool.h>
 #include <byteswap.h>
+
 #ifndef CONSOLE_SPY
 #include <json/json.h>
 #endif /* NOT CONSOLE_SPY */
@@ -61,12 +66,26 @@ int ui_connect(struct state *state);
 bool bspysock_enable = true;
 
 
+void dump_hex(unsigned char *buf, int len)
+{
+        int i;
+        unsigned char *pBuf;
+        pBuf = buf;
+
+        for(i=0; i < len; i++) {
+                printf("%02x ", *pBuf++);
+        }
+        printf("\n");
+}
+
 bool packet_qualify(struct state *state, struct sockaddr *sa, unsigned char *buf, int size)
 {
-        struct ifreq ifr;
         bool packet_status = true;
 
+
         if (state->ax25_recvproto == ETH_P_ALL) {       /* promiscuous mode? */
+#ifdef USE_SOCK_PACKET
+                struct ifreq ifr;
 
                 strncpy(ifr.ifr_name, sa->sa_data, IF_NAMESIZE);
 
@@ -78,18 +97,27 @@ bool packet_qualify(struct state *state, struct sockaddr *sa, unsigned char *buf
 #endif
                         return false;          /* not AX25 so ignore this packet */
                 }
-        }
+#else
+                struct  sockaddr_ll *sll = (struct sockaddr_ll *)sa;
 
+                if(sll->sll_protocol != htons(ETH_P_AX25)) {
+                        return false;
+                }
+
+#endif
+        }
+#ifdef USE_SOCK_PACKET
         if ( (state->conf.ax25_pkt_device_filter == AX25_PKT_DEVICE_FILTER_ON) &&
              (state->ax25_dev != NULL) &&
              (strcmp(state->ax25_dev, sa->sa_data) != 0) ) {
                 pr_debug("%s:%s(): qualify fail due to device %s\n", __FILE__, __FUNCTION__, sa->sa_data);
                 packet_status = false;
         }
+#endif
 
         if( (size > 512) && packet_status) {
-                printf("%s:%s() Received oversize AX.25 frame %d bytes, sa_data: %s \n",
-                       __FILE__, __FUNCTION__, size, sa->sa_data);
+                printf("%s:%s() Received oversize AX.25 frame %d bytes\n",
+                       __FILE__, __FUNCTION__, size);
                 packet_status = false;
         }
         if(!ISAX25ADDR(buf[0] >> 1)) {
@@ -99,17 +127,6 @@ bool packet_qualify(struct state *state, struct sockaddr *sa, unsigned char *buf
         }
 
         return(packet_status);
-}
-void dump_hex(unsigned char *buf, int len)
-{
-        int i;
-        unsigned char *pBuf;
-        pBuf = buf;
-
-        for(i=0; i < len; i++) {
-                printf("%02x ", *pBuf++);
-        }
-        printf("\n");
 }
 
 void fap_conversion_debug(char *rxbuf, char *buffer, int len)
@@ -262,11 +279,17 @@ int aprsax25_connect(struct state *state)
                 return(-1);
         }
 #endif
+#ifdef USE_SOCK_PACKET /* older systems */
         if ( (rx_sock = socket(AF_INET, SOCK_PACKET, htons(state->ax25_recvproto))) == -1) {
                 perror("receive AX.25 socket");
                 return(-1);
         }
-
+#else  /* for newer systems */
+        if ( (rx_sock = socket(PF_PACKET, SOCK_RAW, htons(state->ax25_recvproto))) == -1) {
+                perror("receive AX.25 socket");
+                return(-1);
+        }
+#endif
         /*
          * Choice of which source call sign to use
          * - config'ed in /etc/ax25/axports for the ax25 stack
@@ -278,6 +301,7 @@ int aprsax25_connect(struct state *state)
                 return -1;
         }
 
+        printf("%s: Using callsign %s with ax.25port %s\n", __FUNCTION__, portcallsign, ax25port);
         /*
          * Check if the call sign in the ini file is the same as what's
          * config'ed for the AX.25 stack in /etc/ax25/axports.
@@ -469,6 +493,10 @@ void handle_ax25_pkt(struct state *state, struct sockaddr *sa, unsigned char *bu
 {
         struct t_ax25packet ax25packet;
         struct timezone tmzone;
+        struct ifreq ifr;
+        char portname[16];
+
+        if (packet_qualify(state, sa, buf, size)) {
 
         /* Fix me: first byte in the receive buffer is KISS command
          * From AX25 first byte specifies:
@@ -479,11 +507,20 @@ void handle_ax25_pkt(struct state *state, struct sockaddr *sa, unsigned char *bu
         time(&ax25packet.time);
         gettimeofday(&ax25packet.timeval, &tmzone);
 
+#ifdef  USE_SOCK_PACKET
         if ((ax25packet.port = ax25_config_get_name(sa->sa_data)) == NULL)
                 ax25packet.port = sa->sa_data;
+#else
+        struct  sockaddr_ll *sll = (struct sockaddr_ll *)sa;
+        memset((char *)&ifr, 0, sizeof(ifr));
+        ifr.ifr_ifindex = sll->sll_ifindex;
 
-        if (packet_qualify(state, sa, buf, size)) {
+        if(ioctl(state->tncfd, SIOCGIFNAME, &ifr) >= 0) {
+                strncpy(portname,ifr.ifr_name, sizeof(ifr.ifr_name));
+                ax25packet.port = portname;
+        }
 
+#endif
 #ifndef MAIN
                 if(state->debug.display_fap_enable) {
 
@@ -936,6 +973,8 @@ int live_packets(struct state *state)
         int size = 0;
 #ifndef CONSOLE_SPY
         int *fd = &state->dspfd;
+#else
+        state->conf.ax25_port = NULL;
 #endif /*  CONSOLE_SPY */
 
         /* Live packet handling */

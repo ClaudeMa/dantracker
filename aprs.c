@@ -573,18 +573,57 @@ void display_wx(struct state *state, fap_packet_t *fap)
         free(report);
 }
 
+#define TELEMSTRBUFSIZE 512
 void display_telemetry(struct state *state, fap_telemetry_t *fap)
 {
         char *data = NULL;
+        char tmpbuf[64];
         int ret;
+        int telem_strsize = 0;
 
         ret = asprintf(&data, "Telemetry #%03i", *fap->seq);
         _ui_send(state, "AI_COURSE", ret == -1 ? "" : data);
         free(data);
 
-        ret = asprintf(&data, "%.0f %.0f %.0f %.0f %.0f %8.8s",
-                       *fap->val1, *fap->val2, *fap->val3, *fap->val4, *fap->val5,
-                       fap->bits);
+        /* Malloc a buffer large enought to hold the 5 telemetry values
+         * plus the bits, see fap_telemetry-t
+         */
+        if( (data = malloc(TELEMSTRBUFSIZE)) == NULL) {
+                printf("%s: malloc error: %s\n",
+                       __FUNCTION__, strerror(errno));
+                return;
+        }
+        data[0] = '\0';
+
+        if(fap->val1 != NULL) {
+                telem_strsize += sprintf(tmpbuf, "%.0f ", *fap->val1);
+                strcat(data, tmpbuf);
+        }
+
+        if(fap->val2 != NULL) {
+                telem_strsize += sprintf(tmpbuf, "%.0f ", *fap->val2);
+                strcat(data, tmpbuf);
+        }
+        if(fap->val3 != NULL) {
+                telem_strsize += sprintf(tmpbuf, "%.0f ", *fap->val3);
+                strcat(data, tmpbuf);
+        }
+        if(fap->val4 != NULL) {
+                telem_strsize += sprintf(tmpbuf, "%.0f ", *fap->val4);
+                strcat(data, tmpbuf);
+        }
+        if(fap->val5 != NULL) {
+                telem_strsize += sprintf(tmpbuf, "%.0f ", *fap->val5);
+                strcat(data, tmpbuf);
+        }
+
+        telem_strsize += sprintf(tmpbuf, "%8.8s", fap->bits);
+        if(telem_strsize > TELEMSTRBUFSIZE) {
+                printf("%s: Telemetry string over ran buffer\n",
+                       __FUNCTION__);
+                return;
+        }
+        strcat(data, tmpbuf);
         _ui_send(state, "AI_COMMENT", ret == -1 ? "" : data);
         free(data);
 
@@ -2428,7 +2467,7 @@ int canned_packets(struct state *state)
                                 handle_gps_data(state);
 /*                                printf("g"); fflush(stdout); */
                         }
-                        if(FD_ISSET(state->dspfd, &fds)) {
+                        if( (state->dspfd != -1) && FD_ISSET(state->dspfd, &fds)) {
                                 handle_display(state);
                         }
                 }
