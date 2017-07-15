@@ -294,8 +294,8 @@ struct state {
         } stats;
 
         struct {
-                char *record_pkt_filename;
-                char *playback_pkt_filename;
+                const char *record_pkt_filename;
+                const char *playback_pkt_filename;
                 int playback_time_scale;
                 int console_display_filter;
                 int verbose_level;

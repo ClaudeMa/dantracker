@@ -521,7 +521,8 @@ err:
 int parse_ini(char *filename, struct state *state)
 {
         dictionary *ini;
-        char *tmp, *basecallsign;
+        char *tmp;
+        char *basecallsign;
         static char *socketpath;
         char **subst_str[25];
         int subst_line_cnt = 0;
@@ -568,17 +569,17 @@ int parse_ini(char *filename, struct state *state)
         }
 
         if (!state->conf.tnc)
-                state->conf.tnc = iniparser_getstring(ini, "tnc:port", NULL);
+                state->conf.tnc = (char *)iniparser_getstring(ini, "tnc:port", NULL);
         state->conf.tnc_rate = iniparser_getint(ini, "tnc:rate", 9600);
-        state->conf.tnc_type = iniparser_getstring(ini, "tnc:type", "KISS");
+        state->conf.tnc_type = (char *)iniparser_getstring(ini, "tnc:type", "KISS");
 
-        tmp = iniparser_getstring(ini, "tnc:init_kiss_cmd", "");
+        tmp = (char *)iniparser_getstring(ini, "tnc:init_kiss_cmd", "");
         state->conf.init_kiss_cmd = process_tnc_cmd(tmp);
 
         if (!state->conf.gps)
-                state->conf.gps = iniparser_getstring(ini, "gps:port", NULL);
+                state->conf.gps = (char *)iniparser_getstring(ini, "gps:port", NULL);
         state->conf.gps_rate = iniparser_getint(ini, "gps:rate", 4800);
-        state->conf.gps_type = iniparser_getstring(ini, "gps:type", "static");
+        state->conf.gps_type = (char *)iniparser_getstring(ini, "gps:type", "static");
 
         /* set default gps device static/fake */
         state->conf.gps_type_int = GPS_TYPE_FAKE;
@@ -597,7 +598,7 @@ int parse_ini(char *filename, struct state *state)
         printf("CONF debug: gps system update time every %d minutes\n", state->conf.gps_time_update);
 
         /* Build the TIER 2 host name */
-        tmp = iniparser_getstring(ini, "net:server_host_address", "oregon");
+        tmp = (char *)iniparser_getstring(ini, "net:server_host_address", "oregon");
 
         state->conf.aprsis_server_host_addr = calloc(sizeof(tmp)+ 1 + sizeof(TIER2_HOST_NAME) + 1, sizeof(char));
         sprintf(state->conf.aprsis_server_host_addr,"%s%s", tmp, TIER2_HOST_NAME);
@@ -610,10 +611,10 @@ int parse_ini(char *filename, struct state *state)
          *  server specified above.
          */
         state->conf.aprsis_range = iniparser_getint(ini, "net:range", 100);
-        state->conf.aprsis_filter = iniparser_getstring(ini, "net:server_filter", NULL);
+        state->conf.aprsis_filter = (char *)iniparser_getstring(ini, "net:server_filter", NULL);
 
         /* Get the AX25 port name */
-        state->conf.ax25_port = iniparser_getstring(ini, "ax25:port", "undefined");
+        state->conf.ax25_port = (char *)iniparser_getstring(ini, "ax25:port", "undefined");
 
         /* Get the AX25 device filter setting */
         tmp = strdup(iniparser_getstring(ini, "ax25:device_filter", "OFF"));
@@ -627,14 +628,14 @@ int parse_ini(char *filename, struct state *state)
         }
 
         /* Get the APRS transmit path */
-        state->conf.aprs_path = iniparser_getstring(ini, "ax25:aprspath", "");
+        state->conf.aprs_path = (char *)iniparser_getstring(ini, "ax25:aprspath", "");
 
         if (!state->conf.tel)
-                state->conf.tel = iniparser_getstring(ini, "telemetry:port",
+                state->conf.tel = (char *)iniparser_getstring(ini, "telemetry:port",
                         NULL);
         state->conf.tel_rate = iniparser_getint(ini, "telemetry:rate", 9600);
 
-        state->mycall = iniparser_getstring(ini, "station:mycall", "N0CALL-7");
+        state->mycall = (char *)iniparser_getstring(ini, "station:mycall", "N0CALL-7");
 
         /* Verify call sign */
         basecallsign=strdup(state->mycall);
@@ -653,7 +654,7 @@ int parse_ini(char *filename, struct state *state)
         pr_debug("Calling iniparser for station call %s, ssid:%d\n",
                  state->basecall, state->myssid);
 
-        state->conf.ui_host_name = iniparser_getstring(ini, "ui_net:sock_hostname", "");
+        state->conf.ui_host_name = (char *)iniparser_getstring(ini, "ui_net:sock_hostname", "");
         printf("CONF debug: sock_host name string length = %zd\n", strlen(state->conf.ui_host_name));
 
         if (strlen(state->conf.ui_host_name) == 0 ) {
@@ -664,7 +665,7 @@ int parse_ini(char *filename, struct state *state)
 
         /* If host address arg isn't defined us UNIX socket path */
         asprintf(&socketpath, "/tmp/%s_UI", basecallsign);
-        state->conf.ui_sock_path = iniparser_getstring(ini, "ui_net:unix_socket", socketpath);
+        state->conf.ui_sock_path = (char *)iniparser_getstring(ini, "ui_net:unix_socket", socketpath);
         if(has_key(state->conf.ui_sock_path)) {
                 subst_str[subst_line_cnt] = &state->conf.ui_sock_path;
                 subst_line_cnt++;
@@ -691,7 +692,7 @@ int parse_ini(char *filename, struct state *state)
         state->conf.spy_format |= STREQ(tmp, "OFF") ? 0 : SPY_FORMAT_PKTLEN_ENABLE;
 
 
-        state->conf.icon = iniparser_getstring(ini, "station:icon", "/>");
+        state->conf.icon = (char *)iniparser_getstring(ini, "station:icon", "/>");
 
         if (strlen(state->conf.icon) != 2) {
                 printf("ERROR: Icon must be two characters, not `%s'\n",
@@ -699,7 +700,7 @@ int parse_ini(char *filename, struct state *state)
                 return -1;
         }
 
-        state->conf.digi_path = iniparser_getstring(ini, "station:digi_path",
+        state->conf.digi_path = (char *)iniparser_getstring(ini, "station:digi_path",
                 "WIDE1-1,WIDE2-1");
 
         state->conf.power = iniparser_getint(ini, "station:power", 0);
@@ -749,14 +750,14 @@ int parse_ini(char *filename, struct state *state)
                 "static:course",
                 0.0);
 
-        state->conf.digi_alias = iniparser_getstring(ini, "digi:alias",
+        state->conf.digi_alias = (char *)iniparser_getstring(ini, "digi:alias",
                 "TEMP1-1");
         state->conf.digi_enabled = iniparser_getint(ini, "digi:enabled", 0);
         state->conf.digi_append = iniparser_getint(ini, "digi:append_path",
                 0);
         state->conf.digi_delay = iniparser_getint(ini, "digi:txdelay", 500);
 
-        tmp = iniparser_getstring(ini, "station:beacon_types", "posit");
+        tmp = (char *)iniparser_getstring(ini, "station:beacon_types", "posit");
         if (strlen(tmp) != 0) {
                 char **types;
                 int count;
@@ -789,7 +790,7 @@ int parse_ini(char *filename, struct state *state)
         strupper(tmp);
         state->conf.metric_units = STREQ(tmp, "METRIC") ? true : false;
 
-        tmp = iniparser_getstring(ini, "comments:enabled", "");
+        tmp = (char *)iniparser_getstring(ini, "comments:enabled", "");
         printf("CONF debug comments count %zd, comment: %s\n", strlen(tmp), tmp);
 
         if (strlen(tmp) != 0) {
@@ -806,7 +807,7 @@ int parse_ini(char *filename, struct state *state)
                         snprintf(section, sizeof(section),
                                  "comments:%s", state->conf.comments[i]);
                         free(state->conf.comments[i]);
-                        state->conf.comments[i] = iniparser_getstring(ini,
+                        state->conf.comments[i] = (char *)iniparser_getstring(ini,
                                 section,
                                 "INVAL");
                         if(has_key(state->conf.comments[i])) {
