@@ -321,22 +321,36 @@ void handle_aprsMessages(struct state *state, fap_packet_t *fap, char *packet) {
         bool isnew;
 
         if(fap->destination != NULL) {
-                printf("\n%s Msg [%lu]: type: 0x%02x, dest: %s -> %s\n",
+                printf("\n%s Msg [%lu]: type: 0x%02x, src: %s, dest: %s msg: %s\n",
                        time2str(fap->timestamp, 0),
                        state->stats.inPktCount,
                        *fap->type,
+                       state->mycall,
                        fap->destination,
                        packet);
         }
         /*
+         * Qualify packet source address
+         */
+        if(fap->src_callsign != NULL &&
+           STRNEQ(fap->src_callsign,
+                  state->mycall,
+                  strlen(state->mycall))) {
+                printf("   mycall matches src callsign drop!\n");
+                return;
+        }
+
+        /*
          * Qualify packet destination address
          */
-        if((fap->destination != NULL) &&
+        if(fap->destination != NULL &&
            STRNEQ(fap->destination,
                   state->mycall,
                   strlen(state->mycall))) {
+                printf("   mycall matches destination ok!\n");
                 /*
                  * Qualify message as an ACK
+                 *  libfap sucks
                  */
                 if(fap->message_ack != NULL) {
                         ack_ind = atoi(fap->message_ack) & (MAX_OUTSTANDING_MSGS - 1);
@@ -357,18 +371,33 @@ void handle_aprsMessages(struct state *state, fap_packet_t *fap, char *packet) {
                                         state->outstanding_ack_timer_count--;
                                 }
                         }
-                }
-                /*
-                 * Qualify messsage requiring an ACK
-                 */
-                if(fap->message_id != NULL) {
-                        /* Send an ACK for new messages only */
-                        pr_debug("Receiving aprs message from %s requiring an ack: %s ",
+                } else {
+
+                        /* Here for message sent to our callsign */
+                        pr_debug("!!! send_msg_ack to %s, msg:%s\n", fap->src_callsign, fap->message );
+                        pr_debug("Receiving aprs message from %s requiring an ack id: %s\n",
                                  fap->src_callsign, fap->message_id);
-                        if((isnew = isnewmessage(state, fap))) {
-                                send_msg_ack(state, fap);
+
+                        /*
+                         * Qualify messsage requiring an ACK
+                         */
+                        if(fap->message_id != NULL) {
+
+                                /* send a msg ack for every message
+                                 * received */
+                                isnew = isnewmessage(state, fap);
+                                send_msg_ack(state, fap, fap->message_id);
+                                printf(", for %s message\n", isnew ? "new" : "OLD");
+                        } else {
+                                char *tokstr;
+                                pr_debug("Would have sent ack to: [%s] but message_id was NULL\n", packet);
+                                tokstr=strstr(packet,"{");
+                                if(tokstr != NULL) {
+                                        pr_debug("parse for id found this: %s\n", tokstr);
+                                }
+                                send_msg_ack(state, fap, tokstr+1);
+
                         }
-                        printf(", for %s message\n", isnew ? "new" : "OLD");
                 }
         }
 }
@@ -445,7 +474,8 @@ void webdisplay_thirdparty(struct state *state, fap_packet_t *fap)
                 }
 
 #if 0
-                store_packet(state, fap);
+                /* This segfaults */
+                store_packet(state, encap_fap);
 #endif
 
                 snprintf(buf, sizeof(buf), "%s->%s @%s: type: %d %s",
@@ -482,13 +512,13 @@ void webdisplay_unhandled(struct state *state, fap_packet_t *fap)
 /*
  * Respond to an ack message request
  */
-void send_msg_ack(struct state *state, fap_packet_t *fap)
+void send_msg_ack(struct state *state, fap_packet_t *fap, char * message_id)
 {
         char aprs_ack[24]; /* largest APRS Message Ack is 19 bytes */
 
         sprintf(aprs_ack,":%-9s:ack%s",
-                  fap->destination,
-                  fap->message_id);
+                  fap->src_callsign,
+                  message_id);
 
         pr_debug("Sending aprs ack: %s\n", aprs_ack);
         send_beacon(state, aprs_ack);
@@ -500,9 +530,20 @@ void send_msg_ack(struct state *state, fap_packet_t *fap)
  */
 void send_message(struct state *state, char *to_str, char *msg_str, char **build_msg)
 {
-        char *aprs_msg;
+        char *aprs_msg, *tokstr;
         int ack_ind;
         ack_outstand_t *ackout;
+
+        /* disallow these 3 characters |,~ or { */
+        if((tokstr=strstr(msg_str,"|")) != NULL ) {
+                *tokstr=' ';
+        }
+        if((tokstr=strstr(msg_str,"~")) != NULL ) {
+                *tokstr=' ';
+        }
+        if((tokstr=strstr(msg_str,"{")) != NULL) {
+                *tokstr=' ';
+        }
 
         if(state->conf.aprs_message_ack) {
                 state->ack_msgid++; /* Bump APRS message number */
@@ -560,9 +601,6 @@ void display_fap_message(struct state *state, fap_packet_t *fap)
         if(fap->destination) {
                 printf("dest: %s ", fap->destination);
         }
-        if(fap->message) {
-                printf("msg[%zu]: %s ", strlen(fap->message), fap->message);
-        }
         if(fap->message_ack) {
                 printf("ack: %s ", fap->message_ack);
         }
@@ -571,6 +609,9 @@ void display_fap_message(struct state *state, fap_packet_t *fap)
         }
         if(fap->message_id) {
                 printf("id: %s", fap->message_id);
+        }
+        if(fap->message) {
+                printf("msg[%zu]: %s ", strlen(fap->message), fap->message);
         }
         printf("\n");
         fflush(stdout);
