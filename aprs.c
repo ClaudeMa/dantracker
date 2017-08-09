@@ -2256,7 +2256,7 @@ int fake_gps_data(struct state *state)
         mypos->course = state->conf.static_crs;
         /* If ini parameter locale:units = metric
          * assume static variables are given in metric */
-        mypos->alt = M_TO_FT(state->conf.static_alt);
+        mypos->alt = state->conf.metric_units ? state->conf.static_alt : FT_TO_M(state->conf.static_alt);
         mypos->speed = KPH_TO_MPH(state->conf.static_spd);
 
         mypos->qual = 1;
@@ -2640,6 +2640,7 @@ int main(int argc, char **argv)
                         }
                 }
 
+                /* Only look at read file descriptors */
                 ret = select(100, &fds, NULL, NULL, &tv);
                 if (ret == -1) {
                         perror("select");
