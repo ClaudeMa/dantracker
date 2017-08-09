@@ -24,8 +24,8 @@
 #include "nmea.h"
 
 #define TRACKER_MAJOR_VERSION 1
-#define TRACKER_MINOR_VERSION 1
-#define TRACKER_BUILD 181
+#define TRACKER_MINOR_VERSION 2
+#define TRACKER_BUILD 1
 
 #define MAX_AX25_DIGIS 8        /* Maximum number of digipeaters: */
 #define MAX_APRS_MSG_LEN (67)
