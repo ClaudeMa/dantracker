@@ -154,8 +154,8 @@ function htmlEntities(str) {
 function send_aprs_display(message, orig) {
 
 	/*
-			* Temporary Debug to catch any invalid json
-			*/
+ 	 * Temporary Debug to catch any invalid json
+ 	 */
 
 	if(JSON.validate(message) !== true) {
 		console.log('Caught invalid json string: ' + message );
@@ -190,7 +190,10 @@ if(UNIXPORT != undefined) {
  * HTTP server for websocket
  **/
 var server = http.createServer(function(request, response) {
-        // Not important for us. We're writing WebSocket server, not HTTP server
+	// Not important for us. We're writing WebSocket server, not HTTP server
+    console.log((new Date()) + ' http server Received request for ' + request.url);
+    response.writeHead(404);
+    response.end();			
 });
 server.listen(webSocketPort, function() {
 	console.log((new Date()) + " Web Socket Server is listening on port " + webSocketPort);
@@ -202,8 +205,13 @@ server.listen(webSocketPort, function() {
 var wsServer = new webSocketServer({
     // WebSocket server is tied to a HTTP server. WebSocket request is just
     // an enhanced HTTP request. For more info http://tools.ietf.org/html/rfc6455#page-6
-	httpServer: server
+	httpServer: server,
+	autoAcceptConnections: false
 });
+
+function originIsAllowed(origin) {
+  return true;
+}
 
 wsClients.push(wsServer);
 
@@ -215,6 +223,11 @@ wsServer.on('request', function(request) {
 	var destName = false;
 	var userColor = false;
 
+	if (!originIsAllowed(request.origin)) {
+		request.reject();
+		console.log((new Date()) + ' Connection from origin ' + request.origin + ' rejected.');
+		return;
+	}
 	console.log((new Date()) + ' Connection from origin ' + request.origin);
 
 	// accept connection - you should check 'request.origin' to make sure that
@@ -232,7 +245,8 @@ wsServer.on('request', function(request) {
 	}
 
 //	showObjElements(request);
-	console.log('OPENING connection: id: ' + connection.id + ', index: ' + index + ', ip: ' + connection.remoteAddress + ', connections open: ' + trkClients.length);
+	console.log('OPENING connection: id: ' + connection.id + ', index: ' + index + ', ip: ' + connection.remoteAddress + ', socket ip: ' + 	connection.socket.remoteAddress + ', connections open: ' + trkClients.length);
+	
 
 	// user sent some message
         connection.on('message', function(message) {
@@ -326,7 +340,7 @@ wsServer.on('request', function(request) {
 			if(trkClients[i].id == connection.id) {
 				// remove user from the list of connected clients
 				trkClients.splice(i, 1);
-				console.log((new Date()) + ' CLOSING Connection: id: ' + connection.id  + ', remaining: ' + trkClients.length + ', reason: ' + description);
+				console.log((new Date()) + ' Peer: ' + connection.remoteAddress + ' CLOSING Connection id: ' + connection.id  + ', remaining: ' + trkClients.length + ', reason: ' + description);
 				break;
 			}
 			i++;
