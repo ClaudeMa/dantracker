@@ -259,7 +259,7 @@ $(function () {
         }
 
         // open connection
-        var connection = new WebSocket('ws://'+ WebIpAddr+':'+ WebIpSock);
+	var connection = new WebSocket('ws://'+ WebIpAddr+':'+ WebIpSock);
 
         connection.onopen = function () {
                 // first we want users to enter their names
@@ -272,12 +272,48 @@ $(function () {
                 connection.send(JSON.stringify( { type: 'getconfig', data: 'source_callsign'} ));
         };
 
-        connection.onerror = function (error) {
-                // just in there were some problems with conenction...
-                messages.html($('<p>', { text: 'Sorry, but there\'s some problem with your '
-                + 'connection or the server is down.</p>' } ));
-        };
+	connection.onerror = function (error) {
+		// just in case there were some problems with the connection...
+		messages.html($('<p>', { text: 'Sorry, but there\'s some problem with your '
+		+ 'connection or the server is down.</p>' } ));
+	};
 
+	connection.onclose = function (event) {
+		var reason;
+		alert(event.code);
+		// See http://tools.ietf.org/html/rfc6455#section-7.4.1
+		if (event.code == 1000)
+			reason = "Normal closure, meaning that the purpose for which the connection was established has been fulfilled.";
+		else if(event.code == 1001)
+			reason = "An endpoint is \"going away\", such as a server going down or a browser having navigated away from a page.";
+		else if(event.code == 1002)
+			reason = "An endpoint is terminating the connection due to a protocol error";
+		else if(event.code == 1003)
+			reason = "An endpoint is terminating the connection because it has received a type of data it cannot accept (e.g., an endpoint that understands only text data MAY send this if it receives a binary message).";
+		else if(event.code == 1004)
+			reason = "Reserved. The specific meaning might be defined in the future.";
+		else if(event.code == 1005)
+			reason = "No status code was actually present.";
+		else if(event.code == 1006)
+			reason = "The connection was closed abnormally, e.g., without sending or receiving a Close control frame";
+		else if(event.code == 1007)
+			reason = "An endpoint is terminating the connection because it has received data within a message that was not consistent with the type of the message (e.g., non-UTF-8 [http://tools.ietf.org/html/rfc3629] data within a text message).";
+		else if(event.code == 1008)
+			reason = "An endpoint is terminating the connection because it has received a message that \"violates its policy\". This reason is given either if there is no other sutible reason, or if there is a need to hide specific details about the policy.";
+		else if(event.code == 1009)
+			reason = "An endpoint is terminating the connection because it has received a message that is too big for it to process.";
+		else if(event.code == 1010) // Note that this status code is not used by the server, because it can fail the WebSocket handshake instead.
+			reason = "An endpoint (client) is terminating the connection because it has expected the server to negotiate one or more extension, but the server didn't return them in the response message of the WebSocket handshake. <br /> Specifically, the extensions that are needed are: " + event.reason;
+		else if(event.code == 1011)
+			reason = "A server is terminating the connection because it encountered an unexpected condition that prevented it from fulfilling the request.";
+		else if(event.code == 1015)
+			reason = "The connection was closed due to a failure to perform a TLS handshake (e.g., the server certificate can't be verified).";
+		else
+			reason = "Unknown reason";
+
+		messages.html($('<p>', { text: 'connection closed for reason: ' + reason }, '</p>'));
+		
+	};	
         aprsCurrentWin.text('Current Win: ' );
         aprsHistWin.text('win2_1: Callsign history ');
         aprsHistWin2.text('win2_2: Callsign history ');
@@ -287,8 +323,10 @@ $(function () {
         messages.text('Messages');
         aprsEncapWin.text('Encapsulated Packets');
 
+	/* display websocket address */
+	addDebug('ws://'+ WebIpAddr+':'+ WebIpSock);
         /* display server address */
-        addDebug('URL: ' + window.location.hostname+ ' Port num: ' + window.location.port);
+	addDebug('URL: ' + window.location.hostname+ ' Port num: ' + window.location.port);
 
         var ai_win={'icon': "",
         'callsign': 'NOCALL',
@@ -620,10 +658,11 @@ $(function () {
         };
 
         /**
-         * Set 'To:' callsign when user presses Enter key
+         * Set 'To:' callsign when user presses any of these keys:
+         * carriage return, tab
          **/
         callsign_to.keydown(function(e) {
-                if (e.keyCode === 13) {
+                if (e.keyCode === 13 || e.keyCode === 9) {
                         var msg = $(this).val();
                         if (!msg) {
                                 return;
@@ -637,10 +676,11 @@ $(function () {
         });
 
         /**
-         * Send mesage when user presses Enter key
+         * Send mesage when user presses any of these keys:
+         * carriage return, tab
          **/
         msginput.keydown(function(e) {
-                if (e.keyCode === 13) {
+                if (e.keyCode === 13 || e.keyCode === 9) {
                         var msg = $(this).val();
                         if (!msg) {
                                 return;
