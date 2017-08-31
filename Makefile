@@ -39,9 +39,9 @@ LIBAX25=$(shell ./conftest.sh)
 
 # If not building on a dev machine get build number from header file
 ifeq (,$(wildcard .git))
-   BUILD:="$(shell grep "TRACKER_BUILD" aprs.h | cut -d' ' -f3)"
+	BUILD:="$(shell grep "TRACKER_BUILD" aprs.h | cut -d' ' -f3)"
 else
-   BUILD:="$(shell LC_ALL=C git log --oneline | wc -l)"
+	BUILD:="$(shell LC_ALL=C git log --oneline | wc -l)"
 endif
 
 CFLAGS+=-DBUILD=$(BUILD)
@@ -55,7 +55,7 @@ LIBS+=$(LIBAX25)
 CFLAGS_NOWEB+= -DHAVE_AX25_TRUE
 LIBS_NOWEB+=$(LIBAX25)
 else
-echo "AX.25 not installed!"
+$(error "AX.25 not installed!")
 endif
 
 # -g option compiles with symbol table
