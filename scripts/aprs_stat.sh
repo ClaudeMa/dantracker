@@ -16,13 +16,13 @@ else
     echo "screen for tracker running"
 fi
 
-retcode=$(echo $screensup | grep -i "spy")
-if [ $? -ne 0 ]; then
-    echo "screen for spy NOT FOUND"
-    echo "$screensup"
-else
-    echo "screen for spy running"
-fi
+#retcode=$(echo $screensup | grep -i "spy")
+#if [ $? -ne 0 ]; then
+#    echo "screen for spy NOT FOUND"
+#    echo "$screensup"
+#else
+#    echo "screen for spy running"
+#fi
 
 echo "PID of running aprs $(pidof aprs)"
 echo "PID of running aprs-ax25 $(pidof aprs-ax25)"

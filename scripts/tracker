@@ -34,8 +34,9 @@ case "$1" in
 	echo "Starting $DESC: "
 	$DAEMON
 
-# start the led blinking
-	echo "heartbeat" > /sys/class/leds/tiger\:green\:health/trigger
+# start the led blinking for Raspberry Pi
+        echo heartbeat > /sys/class/leds/led0/trigger
+#	echo "heartbeat" > /sys/class/leds/tiger\:green\:health/trigger
 
 #	start-stop-daemon --start --quiet -o --exec $DAEMON 2&>/dev/null
 #	start-stop-daemon --start  -o --exec $DAEMON 2&1
@@ -46,8 +47,9 @@ case "$1" in
 	echo -n "Stopping $DESC: "
 	$DAEMONHALT
 #	echo "$NAME."
-# stop the led from blinking
-	echo "default-on" > /sys/class/leds/tiger\:green\:health/trigger
+# stop the led from blinking for Raspberry Pi
+	echo mmc0 > /sys/class/leds/led0/trigger
+#	echo "default-on" > /sys/class/leds/tiger\:green\:health/trigger
 	;;
 
     restart|force-reload)
@@ -74,13 +76,13 @@ case "$1" in
             echo "screen for tracker running"
         fi
 
-        retcode=$(echo $screensup | grep -i "spy")
-        if [ $? -ne 0 ]; then
-            echo "screen for spy NOT FOUND"
-            echo "$screensup"
-        else
-            echo "screen for spy running"
-        fi
+#        retcode=$(echo $screensup | grep -i "spy")
+#        if [ $? -ne 0 ]; then
+#            echo "screen for spy NOT FOUND"
+#            echo "$screensup"
+#        else
+#            echo "screen for spy running"
+#        fi
 
         echo "PID of running aprs $(pidof aprs)"
         echo "PID of running aprs-ax25 $(pidof aprs-ax25)"
