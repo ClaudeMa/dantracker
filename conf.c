@@ -532,6 +532,7 @@ int parse_ini(char *filename, struct state *state)
                 return -EINVAL;
 
         state->conf.ini_dict = ini; /* save the ini parser dictionary */
+        state->conf.aprs_message_ack = true;
 
          /* Manually set which packets to display on console
          *  until the parser can handle it */
