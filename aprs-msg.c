@@ -319,6 +319,7 @@ void handle_aprsMessages(struct state *state, fap_packet_t *fap, char *packet) {
 
         int ack_ind;
         bool isnew;
+        char *tokstr;
 
         if(fap->destination != NULL) {
                 printf("\n%s Msg [%lu]: type: 0x%02x, src: %s, dest: %s msg: %s\n",
@@ -349,8 +350,7 @@ void handle_aprsMessages(struct state *state, fap_packet_t *fap, char *packet) {
                   strlen(state->mycall))) {
                 printf("   mycall matches destination ok!\n");
                 /*
-                 * Qualify message as an ACK
-                 *  libfap sucks
+                 * Qualify message as an ACK - libfap sucks
                  */
                 if(fap->message_ack != NULL) {
                         ack_ind = atoi(fap->message_ack) & (MAX_OUTSTANDING_MSGS - 1);
@@ -372,7 +372,15 @@ void handle_aprsMessages(struct state *state, fap_packet_t *fap, char *packet) {
                                 }
                         }
                 } else {
-
+                        /* message_ack pointer is null but check
+                         * for an ack sent to our call sign anyways */
+                        tokstr=strstr(packet, ":ack");
+                        if(tokstr != NULL)  {
+                                pr_debug("Found ack [%s] with index: %d in this msg [%s]\n",
+                                         tokstr, atoi(tokstr+4), packet);
+                                return;
+                        } 
+                                
                         /* Here for message sent to our callsign */
                         pr_debug("!!! send_msg_ack to %s, msg:%s\n", fap->src_callsign, fap->message );
                         pr_debug("Receiving aprs message from %s requiring an ack id: %s\n",
@@ -389,14 +397,14 @@ void handle_aprsMessages(struct state *state, fap_packet_t *fap, char *packet) {
                                 send_msg_ack(state, fap, fap->message_id);
                                 printf(", for %s message\n", isnew ? "new" : "OLD");
                         } else {
-                                char *tokstr;
+                                /*  - fix libfap */
+                                
                                 pr_debug("Would have sent ack to: [%s] but message_id was NULL\n", packet);
                                 tokstr=strstr(packet,"{");
                                 if(tokstr != NULL) {
                                         pr_debug("parse for id found this: %s\n", tokstr);
+                                        send_msg_ack(state, fap, tokstr+1);
                                 }
-                                send_msg_ack(state, fap, tokstr+1);
-
                         }
                 }
         }
