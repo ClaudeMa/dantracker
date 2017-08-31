@@ -297,9 +297,8 @@ int ui_get_json_msg(struct state *state, struct ui_msg **msg, struct ui_msg *hdr
 			char *data_str;
 
 			data_str = (char *)json_object_get_string(data_obj);
-			/* Set a global boolean,
-			 *  -should be in conf struct */
-			state->conf.aprs_message_ack = STREQ(data_str, "ack on");
+                        state->conf.aprs_message_ack =  STREQ(data_str, "ack on");
+                        
 			printf("DEBUG: ACK is turned %s\n", state->conf.aprs_message_ack ? "ON" : "OFF");
 
 			*msg = build_lcd_msg(MSG_SEND, UI_MSG_NAME_SETCFG, aprs_msg);
