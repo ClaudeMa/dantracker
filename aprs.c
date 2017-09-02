@@ -30,6 +30,8 @@
 #include "aprs-ax25.h"
 #include "aprs-msg.h"
 
+extern char *__progname;
+extern const char *getprogname(void);
 
 void fap_free_wrapper(char *dispStr,  struct state *state, fap_packet_t *fap)
 {
@@ -125,12 +127,12 @@ bool send_beacon(struct state *state, char *packet)
                 printf("\n%s Packet out: len: %zu, src: %s, pkt: %s\n",
                        time2str(NULL, 0), strlen(packet), state->ax25_srcaddr, packet);
         }
+        _ui_send(state, "I_TX", "1000");
+
         if (STREQ(state->conf.tnc_type, "KISS")) {
-                _ui_send(state, "I_TX", "1000");
                 return send_kiss_beacon(state->tncfd, packet);
         } else if (STREQ(state->conf.tnc_type, "AX25")) {
 #ifdef HAVE_AX25_TRUE
-                _ui_send(state, "I_TX", "1000");
                 return send_ax25_beacon(state, packet);
 #else
                 printf("%s:%s(): tnc type has been configured to use AX.25 but AX.25 lib has not been installed.\n",
@@ -1394,6 +1396,7 @@ int handle_gps_data(struct state *state)
                 /* Serial port gets GPS data in NMEA 0183 sentence format */
                 case GPS_TYPE_SERIAL:
                         ret = read(state->gpsfd, buf, 32);
+
                         buf[ret] = 0; /* Safe because size is +1 */
 
                         if (ret < 0) {
@@ -1647,10 +1650,11 @@ void sys_ctrl(char *msg)
                        utsname.machine);
                 /* Conditional so dev workstation doesn't power itself
                  * off */
-                if(STRNEQ(utsname.machine, "armv5tel", 5)) {
+                if(STRNEQ(utsname.machine, "armv7l", 6)) {
                         system("shutdown -h now");
                 } else {
                         printf("Failed to shutdown due to machine type check\n");
+                        printf("Found machine type: %s, expected: armv7l\n",utsname.machine);
                 }
 
         } else if (STREQ(msg, UI_MSG_VALUE_SYSCTRL_RESET)) {
@@ -2486,6 +2490,8 @@ int main(int argc, char **argv)
         struct state state;
         bool bUpdateUI = true;
 
+        printf("STARTING %s\n", getprogname());
+
         memset(&state, 0, sizeof(state));
 
         state.dspfd = -1;
@@ -2531,6 +2537,7 @@ int main(int argc, char **argv)
         for (i = 0; i < KEEP_PACKETS; i++)
                 state.recent[i] = NULL;
 
+        printf("%s: Initializing gps\n", getprogname());
         if(gps_init(&state) == -1) {
                 fprintf(stderr, "Failed to init gps, exiting");
                 exit(1);
@@ -2554,7 +2561,7 @@ int main(int argc, char **argv)
                 return 0;
         }
 
-        printf("Using live packets\n");
+        printf("%s: Using live packets\n", getprogname());
 
         if (state.conf.tnc && STREQ(state.conf.tnc_type, "KISS")) {
                 state.tncfd = serial_open(state.conf.tnc, state.conf.tnc_rate, 1);
@@ -2615,7 +2622,7 @@ int main(int argc, char **argv)
         state.disp_idx = -1;
         _ui_send(&state, "AI_CALLSIGN", "HELLO");
 
-
+        printf("%s: Entering loop\n", getprogname());
         while (1) {
                 int ret;
                 struct timeval tv = {1, 0};
@@ -2654,7 +2661,6 @@ int main(int argc, char **argv)
                         }
                         if( (state.gpsfd != -1) && FD_ISSET(state.gpsfd, &fds)) {
                                 handle_gps_data(&state);
-                                bUpdateUI = true;
                         }
                         if( (state.telfd != -1) && FD_ISSET(state.telfd, &fds)) {
                                 handle_telemetry(&state);

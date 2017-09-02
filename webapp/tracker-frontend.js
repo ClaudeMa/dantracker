@@ -349,6 +349,8 @@ $(function () {
         'data': "raining cats and dogs",
         'comment': "Rarely used" };
 
+	gps_signal_display(0);  /* init bar signal signal strength*/
+
         // most important part - incoming messages
         connection.onmessage = function (message) {
                 // try to parse JSON message. Because we know that the server always returns
@@ -455,7 +457,8 @@ $(function () {
                                         case 'G_SIGBARS':
                                                 g_win.sigbars = jvalue;
                                                 var barval = parseInt(jvalue, 10);
-                                                //                                gps_signal_display(barval);
+						gps_signal_display(barval);
+//						aprsDebugWin.append('<p>' + 'sigbars: ' +  barval + ' value: ' + jvalue + '</p>');
                                                 break;
 
                                         case 'G_LATLON':
@@ -465,7 +468,7 @@ $(function () {
                                                 g_win.reason = jvalue;
                                                 break;
                                         default:
-                                                aprsDebugWin.append('<p>' + 'G_ catch all: ' + 'name: ' + jname + ' value: ' + jvalue + '</p>');
+						aprsDebugWin.append('<p>' + 'G_ catch all: ' + 'name: ' + jname + ' value: ' + jvalue + '</p>');
                                                 break;
                                 }
 
@@ -569,8 +572,6 @@ $(function () {
                                 switch(jname) {
                                         case 'I_RX':
                                                 flashColor="DarkGreen";
-                                                gps_signal_display(0);  /* test bar signal images */
-
                                                 break;
                                         case 'I_TX':
                                                 flashColor="red";
@@ -584,7 +585,9 @@ $(function () {
                                                 aprsDebugWin.html('<p>' + 'I_ catch: ' + 'name: ' + jname + ' value: ' + jvalue + '</p>');
                                                 break;
                                 }
-
+				document.getElementById("aprswin1").style.backgroundColor=flashColor;
+				document.getElementById("canwin1").style.backgroundColor=flashColor;
+				document.getElementById("aprscurrent").style.backgroundColor=flashColor;
 
                                 /* Set a timer to fire in 1 second */
                                 clockID=setInterval(function() {
