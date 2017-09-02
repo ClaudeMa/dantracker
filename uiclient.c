@@ -86,9 +86,11 @@ int ui_connect(struct state *state)
 		return -errno;
 	}
 
-	if (connect(sock, dest, dest_len)) {
-		fprintf(stderr, "%s: Failed to connect to UI socket %d: %s\n",
-			  __FUNCTION__, sock, strerror(errno));
+        if (connect(sock, dest, dest_len)) {
+                if(state->debug.verbose_level > 3) {
+                        fprintf(stderr, "%s: Failed to connect to UI socket %d: %s\n",
+                                  __FUNCTION__, sock, strerror(errno));
+                }
 		close(sock);
 		return -errno;
 	} else {
@@ -298,7 +300,7 @@ int ui_get_json_msg(struct state *state, struct ui_msg **msg, struct ui_msg *hdr
 
 			data_str = (char *)json_object_get_string(data_obj);
                         state->conf.aprs_message_ack =  STREQ(data_str, "ack on");
-                        
+
 			printf("DEBUG: ACK is turned %s\n", state->conf.aprs_message_ack ? "ON" : "OFF");
 
 			*msg = build_lcd_msg(MSG_SEND, UI_MSG_NAME_SETCFG, aprs_msg);
