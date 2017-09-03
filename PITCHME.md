@@ -16,7 +16,7 @@
 
 #HSLIDE
 
-### What is n7nix/dantracker, udrtracker, nixtracker
+### What is n7nix/dantracker, udrtracker, nixtracker, unt
 
 #### References to original kk7ds/dantracker
 
@@ -41,7 +41,7 @@
 ![Tracker APRS screen 1](assets/tracker-aprs-20170901.png)
 
 #HSLIDE
-![Tracker APRS screen 2](assets/tracker-aprs-20170901.png_2)
+![Tracker APRS screen 2](assets/tracker-aprs-20170901_2.png)
 #HSLIDE
 ![Tracker MSG screen](assets/tracker-msg-20170901.png)
 
