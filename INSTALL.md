@@ -1,13 +1,14 @@
-Pre-installation requirements
-=============================
+# dantracker installation instructions
 
-Dependencies:
+### Pre-installation requirements
 
-libfap:
+#### Dependencies:
+
+##### libfap:
+```
   http://pakettiradio.net/libfap/
   wget http://pakettiradio.net/downloads/libfap/1.5/libfap-1.5.tar.gz
   tar -zxvf libfap-1.5.tar.gz
-
   cd libfap-1.5
 # apply fap patch
   patch -p2 < ./<path_to_tracker_src>/fap_patch.n7nix
@@ -15,9 +16,11 @@ libfap:
   ./configure
   make
   sudo make install
-  NOTE: libraries install to /usr/local/lib
+```
+* NOTE: libraries install to /usr/local/lib
 
-libiniparser:
+##### libiniparser:
+```
   http://ndevilla.free.fr/iniparser/
   wget http://ndevilla.free.fr/iniparser/iniparser-3.1.tar.gz
   tar -zxvf iniparser-3.1.tar.gz
@@ -27,40 +30,48 @@ libiniparser:
   sudo cp src/dictionary.h /usr/local/include
   make
   sudo cp libiniparser.* /usr/local/lib
+```
 
-gpsd: Optional for GPS daemon
-  Build controlled by GPSD_ENABLE variable in Makefile
+##### gpsd: __Optional for GPS daemon__
+*  Build controlled by GPSD_ENABLE variable in Makefile
+```
   http://www.catb.org/gpsd/installation.html
   Installed from package.
    - require: gpsd, libgps-dev
   Verify library libgps is installed: ldconfig -p | grep gps
   Test installation with something like this:
   gpsd -D 5 -N -n /dev/ttyUSB0
+```
 
-GTKAPP: Only used by gtk app, see Makefile
+##### GTKAPP: Only used by gtk app, see Makefile
+```
   gtk+-2.0
   libgtk2.0-dev
+```
 
-AX25: Only used with AX25 stack
-  Build from source http://www.linux-ax25.org/wiki/CVS
+##### AX25: Only used with AX25 stack
+* Build from source http://www.linux-ax25.org/wiki/CVS
+```
   libax25-dev
+```
 
-WEBAPP: Only used by web app, see Makefile
-  node.js
-    requires openssl libssl-dev
-    https://github.com/joyent/node
-    git clone git://github.com/ry/node.git
+##### WEBAPP: Only used by web app, see Makefile
+###### node.js
+* requires openssl libssl-dev
+* link:  https://nodejs.org/en/download
+  * Choose either LTS or Current
+  * Raspberry Pi choose Linux Binaries (ARM) ARMv7
 
-    cd node
-    ./configure
-    make
-    sudo make install
-    verify by running: $ node -v && npm -v
+* Will install verify by running:
 
-  json-c
-    https://github.com/json-c/json-c
-    git clone git://github.com/json-c/json-c.git
-
+```
+node -v
+npm -v
+```
+######  json-c
+* Location:    https://github.com/json-c/json-c
+* Repository:  git clone git://github.com/json-c/json-c.git
+```
     cd json-c
     sh autogen.sh
     ./configure
@@ -69,63 +80,62 @@ WEBAPP: Only used by web app, see Makefile
     ldconfig
 # if /usr/local/include/json does not exist
  ln -s /usr/local/include/json-c /usr/local/include/json
-
-  javascript libraries
-    Needs version 1.8.3 or greater
+```
+* javascript libraries
+  * Needs version 1.8.3 or greater
+```
     wget http://bit.ly/jqsource -O jquery.js
     sudo cp jquery.js /usr/share/dantracker
-    Above taken care of by install script.
+```
+* Above taken care of by install script.
 
-  node modules
-    ctype
-    iniparser
-    websocket
-    connect
-    serve-static
-    finalhandler
+##### Required node modules
+```
+ctype
+iniparser
+websocket
+connect
+serve-static
+finalhandler
+```
+##### Required Build Tools:
+```
+build-essential (includes libc-dev, make, gcc, ... etc)
+pkg-config
+imagemagick
+git
+automake
+autoconf
+libtool
+```
 
-Tools required:
-  build-essential (includes libc-dev, make, gcc, ... etc)
-  pkg-config
-  imagemagick
-  git
-  automake
-  autoconf
-  libtool
-
-
-Basic Installation
-------------------
+###  Basic Installation
 
 `cd' to the directory containing the source code and type
 `make' to compile, link & create png image files.
 
-fap Installation
-----------------
+#### fap Installation
 
 Before building the fap library run the fap patch in the tracker
 repository against its source tree. You need to supply the directory
 path to dantracker source.
 
-
+```
 cd libfap-1.5
 patch -p2 < ./<path_to_tracker_src>/fap_patch.n7nix
+```
 
+### For dantracker n7nix ONLY
 
-For dantracker n7nix ONLY
-=========================
+#### Web app install notes
 
-Web app install notes
-=====================
-
-Once core apps, aprs for tracker & aprs-ax25 for spy are built need to
+* Once core apps, aprs for tracker & aprs-ax25 for spy are built need to
 do the following:
 
-check that this package is installed:
-screen
-
-Install node.js & npm (package manager for node)
-Install node.js modules globally:
+* Check that the _screen_ package is installed:
+* Install node.js & npm (package manager for node)
+* Install node.js modules globally:
+```
 npm -g install <module name>
 npm list -g
 
@@ -133,8 +143,9 @@ npm list -g
     iniparser
     websocket
     connect
+```
 
-As root run install.sh found in tracker dir.  This will copy binary,
+* As root run install.sh found in tracker dir.  This will copy binary,
 javascript & config files to appropriate directories.
 
 Confirm javascript library jquery-1.8.3.min.js exists here:
