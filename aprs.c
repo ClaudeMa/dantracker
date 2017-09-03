@@ -2086,9 +2086,19 @@ bool should_beacon(struct state *state)
                 goto out;
         }
 
-        /* Never when we don't have a fix */
+        /* When we don't have a gps fix do the atrest rate
+         *  - this can occur when:
+         *   doing dev and gps is in house
+         *   driving through steep canyons or tall trees
+         */
         if (mypos->qual == 0) {
                 reason = "NOLOCK";
+                req = state->conf.atrest_rate;
+                /* No valid gps data so use the static lat/long/course
+                 */
+                mypos->lat = state->conf.static_lat;
+                mypos->lon = state->conf.static_lon;
+                mypos->course = state->conf.static_crs;
                 goto out;
         }
 
@@ -2102,6 +2112,8 @@ bool should_beacon(struct state *state)
         }
 
         /* If we're not moving at all, choose the "at rest" rate */
+        /* printf("%s: speed: %d\n", time2str(NULL, 0), mypos->speed);
+         */
         if (mypos->speed <= 1) {
                 req = state->conf.atrest_rate;
                 reason = "ATREST";
