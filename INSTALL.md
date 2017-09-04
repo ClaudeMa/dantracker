@@ -145,75 +145,84 @@ npm list -g
     connect
 ```
 
-* As root run install.sh found in tracker dir.  This will copy binary,
-javascript & config files to appropriate directories.
+* As root run install.sh found in tracker dir.
+  * This will copy binary, javascript & config files to appropriate directories.
 
-Confirm javascript library jquery-1.8.3.min.js exists here:
+* Confirm javascript library jquery-1.8.3.min.js exists here:
+```
 /usr/share/dantracker/
+```
 
-Edit config files /etc/tracker/aprs_tracker.ini & /etc/tracker/aprs_spy.ini
+##### Edit config files
 
-change [station] mycall
+* /etc/tracker/aprs_tracker.ini
+  * Optional: /etc/tracker/aprs_spy.ini
+  * change [station] mycall
 
-If you don't have a gps connected change [gps] type from nmea to static
-If gps is connected set serial port and set type to nmea
+* If you don't have a gps connected change [gps] type from serial or gpsd to static
+  * If gps is connected set serial port and set type to serial
 
-For AX.25 operation change config for [ax25] port = xxx
+* For AX.25 operation change config for [ax25] port = xxx
 This should be the same port name used in /etc/ax25/axports
 
-As root run /etc/tracker/tracker-up
+* As root run /etc/tracker/tracker-up
 
-As root run screen -ls
+* As root run screen -ls
 
-should see something similar to:
-
+* should see something similar to:
+```
 There are screens on:
 	30680.Tracker	(04/15/2013 06:10:32 PM)	(Detached)
 	21348.Spy	(04/15/2013 01:00:42 PM)	(Detached)
 2 Sockets in /var/run/screen/S-root.
+```
 
-Attach to a screen terminal
----------------------------
-
+##### Attach to a screen terminal
+```
 screen -r Spy
 
-or
+# or
 
 screen -r Tracker
+```
 
-
-If you are successful in getting these screen sessions running & you
+* If you are successful in getting these screen sessions running & you
 are attached use these 'screen' commands:
-
-list windows:
+  * list windows:
+```
 ctrl a w
 
 change windows
 ctrl a 0
 ctrl a 1
 ctrl a 2
-
-leave session by detaching:
+```
+* leave session by detaching:
+```
 ctrl a d
-
-kill them:
+```
+* kill session:
+```
 ctrl a \
-
-Open up your browser
-Is your browser web socket enabled?
+```
+* Open up your browser
+  * Is your browser web socket enabled?
+    * Most likely as web sockeets is no longer that new but check by following this link
+```
 http://caniuse.com/websockets
-
-web url for tracker
-
+```
+##### web url for tracker
+```
 <your_machine_name>:8080/tracker.html
-or
+# or
 localhost:8080/tracker.html
-
-web url for spy
-
+```
+##### web url for spy
+```
 <your_machine_name>:8081/spy.html
-or
+# or
 localhost:8081/spy.html
+```
 
 The install script does not setup apps to start on a power up or
 reboot.  To have the spy & tracker apps startup at boot time do the

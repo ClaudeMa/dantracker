@@ -1,6 +1,6 @@
 ## dantracker
 ##### Basil Gunn N7NIX,  September 2017
-###### https://gitpitch.com/n7nix/dantracker
+ * https://gitpitch.com/n7nix/dantracker
 
 #HSLIDE
 
@@ -28,9 +28,8 @@
 
 ### Differences between n7nix & kk7ds trackers
 
-* Doesn't use GTK+, uses node.js
-  * kk7ds uses LCD display
-  * n7nix uses browser
+* kk7ds uses LCD display, GTK+
+* n7nix uses browser, node.js
 * Adds messaging & shutdown, reset screens
 * Version that controls paclink-unix
 
