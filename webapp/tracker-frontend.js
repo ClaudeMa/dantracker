@@ -569,38 +569,50 @@ $(function () {
                                 if(clockID) {
                                         clearInterval(clockID);
                                 }
-                                switch(jname) {
+				switch(jname) {
                                         case 'I_RX':
-                                                flashColor="DarkGreen";
-                                                break;
-                                        case 'I_TX':
-                                                flashColor="red";
+						flashColor="DarkGreen";
+						document.getElementById("aprswin1").style.backgroundColor=flashColor;
+						document.getElementById("canwin1").style.backgroundColor=flashColor;
+						document.getElementById("aprscurrent").style.backgroundColor=flashColor;
+						break;
+
+					case 'I_TX':
+						flashColor="red";
+						document.getElementById("gpswin").style.backgroundColor=flashColor;
+						document.getElementById("gpswin1").style.backgroundColor=flashColor;
+						document.getElementById("gpswin2").style.backgroundColor=flashColor;
                                                 break;
 
-                                        case 'I_DG':
-                                                flashColor="orange";
+					case 'I_DG':
+						flashColor="orange";
+						document.getElementById("gpswin").style.backgroundColor=flashColor;
+						document.getElementById("gpswin1").style.backgroundColor=flashColor;
+						document.getElementById("gpswin2").style.backgroundColor=flashColor;
                                                 break;
 
                                         deflault:
                                                 aprsDebugWin.html('<p>' + 'I_ catch: ' + 'name: ' + jname + ' value: ' + jvalue + '</p>');
                                                 break;
                                 }
-				document.getElementById("aprswin1").style.backgroundColor=flashColor;
-				document.getElementById("canwin1").style.backgroundColor=flashColor;
-				document.getElementById("aprscurrent").style.backgroundColor=flashColor;
 
-                                /* Set a timer to fire in 1 second */
-                                clockID=setInterval(function() {
+				/* Set a timer to fire in 1 second */
+				clockID=setInterval(function() {
+					/* Paint background of windows 1
+					 * & 3 with its default color.
+					 * I_ messages will momentarily change this color.
+					 */
+					defaultColor="MediumSeaGreen";
+					document.getElementById("gpswin").style.backgroundColor=defaultColor;
+					document.getElementById("gpswin1").style.backgroundColor=defaultColor;
+					document.getElementById("gpswin2").style.backgroundColor=defaultColor;
 
-                                        /* Paint background of window 1 with its default color.
-                                         * I_ messages will momentarily change this color.
-                                         */
-                                        document.getElementById("aprswin1").style.backgroundColor="lightgreen";
-                                        document.getElementById("canwin1").style.backgroundColor="lightgreen";
-                                        document.getElementById("aprscurrent").style.backgroundColor="lightgreen";
+					defaultColor="lightgreen";
+					document.getElementById("aprswin1").style.backgroundColor=defaultColor;
+					document.getElementById("canwin1").style.backgroundColor=defaultColor;
+					document.getElementById("aprscurrent").style.backgroundColor=defaultColor;
 
-
-                                }, 1000);
+				}, 1000);
 
                         } else if(jname.indexOf("ST_") == 0) {
                                 /* Update statistics counters */
