@@ -7,6 +7,73 @@ git clone https://github.com/nwdigitalradio/n7nix
 cd n7nix/tracker
 ./tracker_install.sh
 ```
+### Verify Install
+
+```
+# as root
+cd /home/pi/bin
+./iptable-check.sh
+```
+* Should see something like this
+```
+Chain INPUT (policy ACCEPT 200 packets, 35215 bytes)
+    pkts      bytes target     prot opt in     out     source               destination
+
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+    pkts      bytes target     prot opt in     out     source               destination
+
+Chain OUTPUT (policy ACCEPT 165 packets, 35965 bytes)
+    pkts      bytes target     prot opt in     out     source               destination
+       0        0 DROP       2    --  *      ax0     0.0.0.0/0            224.0.0.22
+       0        0 DROP       udp  --  *      ax0     0.0.0.0/0            224.0.0.251          udp dpt:5353
+```
+* Check if screen is running with 3 windows
+```
+# as root
+screen -ls
+```
+result should be something like this:
+```
+There is a screen on:
+	10096.Tracker	(09/05/2017 12:37:11 PM)	(Detached)
+1 Socket in /var/run/screen/S-root.
+```
+* Verify 3 windows
+```
+screen -x 10096.Tracker
+```
+* Once screen is invoked you can check each window like this:
+```
+ctrl a w
+ctrl a 0
+ctrl a 1
+ctrl a 2
+```
+
+* Now reboot & confirm that everything loads ok
+  * run all _Verify Install_ commands
+
+### Verify Browser App
+* On your RPi appliance type this for an URL
+```
+localhost:8081/tracker.html
+```
+* If your RPi appliance is plugged into your home network
+  * Using your computer [Linux/Windows/MAC] start your browser with this URL
+```
+# On your RPi get your Ethernet address
+ifconfig eth0
+
+# On your workstation or computer type this in your browser
+your_RPi_IP_Address:8081/tracker.html
+# example
+10.0.42.131:8081/tracker.html
+
+# Try it on anybrowser on your phone/pad/tv
+
+```
+
+
 ###### Everything following is for your information only.
 ###### Just run the above script
 
