@@ -1,5 +1,15 @@
 # dantracker installation instructions
 
+* Get the install script and run it like this:
+
+```
+git clone https://github.com/nwdigitalradio/n7nix
+cd n7nix/tracker
+./tracker_install.sh
+```
+###### Everything following is for your information only.
+###### Just run the above script
+
 ### Pre-installation requirements
 
 #### Dependencies:
@@ -187,12 +197,14 @@ screen -r Tracker
 ```
 
 * If you are successful in getting these screen sessions running & you
-are attached use these 'screen' commands:
-  * list windows:
+are attached use the following _screen_ commands:
+
+* list windows:
 ```
 ctrl a w
-
-change windows
+```
+* change windows
+```
 ctrl a 0
 ctrl a 1
 ctrl a 2
@@ -207,15 +219,15 @@ ctrl a \
 ```
 * Open up your browser
   * Is your browser web socket enabled?
-    * Most likely as web sockeets is no longer that new but check by following this link
+    * Most likely as web sockets is no longer that new but check by following this link:
 ```
 http://caniuse.com/websockets
 ```
 ##### web url for tracker
 ```
-<your_machine_name>:8080/tracker.html
+<your_machine_name>:8081/tracker.html
 # or
-localhost:8080/tracker.html
+localhost:8081/tracker.html
 ```
 ##### web url for spy
 ```
@@ -223,104 +235,105 @@ localhost:8080/tracker.html
 # or
 localhost:8081/spy.html
 ```
+###### Below is deprecated
+
+----
 
 The install script does not setup apps to start on a power up or
 reboot.  To have the spy & tracker apps startup at boot time do the
 following. As root copy tracker startup script to the init.d dir then
 use udpate-rc.d to add the daemon.
-
+```
 su
 cd /etc/tracker
 cp tracker /etc/init.d/
-
-Add a daemon with sequence of 95
-
+```
+* Add a daemon with sequence of 95
+```
 update-rc.d tracker defaults 95
-
+```
 The daemon script supports start, stop, restart & status
 For example as root:
-
+```
 /etc/init.d/tracker status
+```
+----
 
+### Starting tracker or spy from command line without using script
 
-Starting tracker or spy from command line without using script
---------------------------------------------------------------
-Make sure tracker or spy is not already running
-
+* Make sure tracker or spy is not already running
+```
 screen -ls
 
 screen -S Tracker -c /etc/tracker/.screenrc.trk
 
-or
+# or
 
 screen -S Spy -c /etc/tracker/.screenrc.spy
+```
+
+## Console Programs
 
 
-Console Programs
-================
+* Stand alone programs displaying to console only.
 
-Stand alone programs displaying to console only.
+##### ./aprs-is
 
-./aprs-is
----------
-
+```
 ./aprs-is -c <path_to_ini_config_file>/aprs.ini
-
-Display packets from an APRS server.
-Need to specify in ini file:
+```
+###### Display packets from an APRS server.
+* Need to specify in ini file:
+```
 [net] server_host_address, server_port and range
 [static] lat and long
 [gps] type=static
+```
 
-
-./aprs-ax25
------------
-
+##### ./aprs-ax25
+```
 ./aprs-ax25 -c <path_to_ini_config_file>/aprs.ini
+```
+###### Display packets from AX.25 stack
+* Need to edit compile time define aprs-ax25.c and remove **#define
+PKT_SOCK_ENABLE**
 
-Display packets from AX.25 stack
-Need to edit compile time define aprs-ax25.c and remove #define
-PKT_SOCK_ENABLE.
 
+##### ./fakegps
 
-./fakegps
----------
-
-Continuously display gps GGA & RMC sentences that will be used if
+* Continuously display gps GGA & RMC sentences that will be used if
 [gps]:type=static is configured.
 
 
-./faptest < file_containing_aprs_packet
----------------------------------------
+##### ./faptest < file_containing_aprs_packet
 
-Reads a packet from stdin and passes to fap library.
-
+* Reads a packet from stdin and passes to fap library.
 
 
-For dantracker kk7ds ONLY
-=========================
 
-Configuration
-=============
+## For dantracker kk7ds ONLY
+
+### Configuration
+
 Copy one of the ini files from examples directory to same directory
 as aprs executable and rename to aprs.ini
 
 
-Running dantracker kk7dds edition
-=================================
-Stress-test by using examples/aprstest.ini (modified as appropriate), which
+### Running dantracker kk7dds edition
+
+* Stress-test by using examples/aprstest.ini (modified as appropriate), which
 will attempt to eat the entire APRS-IS world feed without crashing.
 
 
-Test Programs
--------------
+### Test Programs
 
-Test stand alone programs displaying to console.
-
+* Test stand alone programs displaying to console.
+```
 ./aprs-is
 ./aprs-ax25
+```
 
-Test display interface.
+* Test display interface.
 
 Using socket connect with AF_INET
 ./ui -i with ./uiclient -i [NAME] [VALUE]
@@ -329,11 +342,14 @@ Using socket connect wit AF_UNIX
 ./ui -w with ./uiclient -w [NAME] [VALUE]
 
 
-Normal operation
-----------------
+### Normal operation
 
-UI socket connect via AF_INET
+* UI socket connect via AF_INET
+```
 ./ui -i with ./aprs -d 127.0.0.1
+```
 
-UI socket connect via AF_UNIX
+* UI socket connect via AF_UNIX
+```
 ./ui -w with ./aprs
+```
