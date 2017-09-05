@@ -1,6 +1,7 @@
 #!/bin/bash
 #
 # Minimal install of N7NIX version of dantracker
+# This JUST copies files
 
 package_name="dantracker"
 FILELIST="aprs aprs-ax25"
