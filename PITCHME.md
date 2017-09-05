@@ -1,6 +1,7 @@
 ## dantracker
+
 ##### Basil Gunn N7NIX,  September 2017
- * https://gitpitch.com/n7nix/dantracker
+* https://gitpitch.com/n7nix/dantracker
 
 #HSLIDE
 
@@ -16,8 +17,12 @@
 
 #HSLIDE
 
-### What is n7nix/dantracker, udrtracker, nixtracker, unt
+### What is n7nix/dantracker, udrtracker, nixtracker, uat
 
+#HSLIDE
+![Dan Smith](assets/dan_smith.jpg)
+
+#HSLIDE
 #### References to original kk7ds/dantracker
 
 * [My APRS Tracker Project Youtube](https://www.youtube.com/watch?v=JOaTdWAwdUQ)
@@ -30,17 +35,16 @@
 
 * kk7ds uses LCD display, GTK+
 * n7nix uses browser, node.js
-* Adds messaging & shutdown, reset screens
+* Adds messaging & control screens
+  * control screen: power down & halt or reset
 * Version that controls paclink-unix
-
-#HSLIDE
-![Dan Smith](assets/dan_smith.jpg)
 
 #HSLIDE
 ![Tracker APRS screen 1](assets/tracker-aprs-20170901.png)
 
 #HSLIDE
 ![Tracker APRS screen 2](assets/tracker-aprs-20170901_2.png)
+
 #HSLIDE
 ![Tracker MSG screen](assets/tracker-msg-20170901.png)
 
