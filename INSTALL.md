@@ -54,7 +54,7 @@ ctrl a 2
   * run all _Verify Install_ commands
 
 ### Verify Browser App
-* On your RPi appliance type this for an URL
+* On your RPi appliance open a browser and type this for a URL:
 ```
 localhost:8081/tracker.html
 ```
@@ -76,6 +76,8 @@ your_RPi_IP_Address:8081/tracker.html
 
 ###### Everything following is for your information only.
 ###### Just run the above script
+
+----
 
 ### Pre-installation requirements
 
@@ -188,8 +190,8 @@ libtool
 
 ###  Basic Installation
 
-`cd' to the directory containing the source code and type
-`make' to compile, link & create png image files.
+* Change, _cd_, to the directory containing the source code
+  * then type _make_ to compile, link & create png image files.
 
 #### fap Installation
 
