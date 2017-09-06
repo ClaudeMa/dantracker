@@ -7,7 +7,7 @@
 
 ### History
 
-* First entry in github/kk7ds repository March 6, 2011
+* First entry in github/kk7ds repo March 6, 2011
 * Forked from https://github.com/kk7ds/dantracker
   * First entry in github/n7nix/dantracker March 21, 2013
 
@@ -26,29 +26,35 @@
 #### References to original kk7ds/dantracker
 
 * [My APRS Tracker Project Youtube](https://www.youtube.com/watch?v=JOaTdWAwdUQ)
-  * https://www.youtube.com/watch?v=JOaTdWAwdUQ)
+  * https://www.youtube.com/watch?v=JOaTdWAwdUQ
 
 * [A custom APRS tracker with a real screen](http://www.danplanet.com/blog/?s=a%20custom%20aprs%20tracker%20with%20a%20real%20screen)
-  * http://www.danplanet.com/blog/?s=a%20custom%20aprs%20tracker%20with%20a%20real%20screen)
+  * http://www.danplanet.com/blog/?s=a%20custom%20aprs%20tracker%20with%20a%20real%20screen
+
+#HSLIDE
+
+### Features of dantracker
+* Rotating beacon messages
+
 
 #HSLIDE
 
 ### Differences between n7nix & kk7ds trackers
 
 * kk7ds uses LCD display, GTK+
-* n7nix uses browser, node.js
-* Adds messaging & control screens
+  * n7nix uses browser, node.js
+* Adds APRS messaging & control screens
   * control screen: power down & halt or reset
+* Adds statistics display
+* Parses encapsulated packets
 * Version that controls paclink-unix
-
-* Rotating beacon messages
-*
+* Used valgrind to fix a number of memory leaks
 
 #HSLIDE
-![Tracker APRS screen 1](assets/tracker-aprs-20170901.png)
+![Tracker APRS screen 1](assets/tracker-aprs-20170906_1.png)
 
 #HSLIDE
-![Tracker APRS screen 2](assets/tracker-aprs-20170901_2.png)
+![Tracker APRS screen 2](assets/tracker-aprs-20170906_2.png)
 
 #HSLIDE
 ![Tracker MSG screen](assets/tracker-msg-20170901.png)
