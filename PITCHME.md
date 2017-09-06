@@ -5,7 +5,7 @@
 
 #HSLIDE
 
-### History
+#### History
 
 * First entry in github/kk7ds repo March 6, 2011
 * Forked from https://github.com/kk7ds/dantracker
@@ -35,13 +35,13 @@
 
 #HSLIDE
 
-### Features of dantracker
+#### Features of dantracker
 * Rotating beacon messages
 
 
 #HSLIDE
 
-### Differences between n7nix & kk7ds trackers
+#### Differences between n7nix & kk7ds trackers
 
 * kk7ds uses LCD display, GTK+
   * n7nix uses browser, node.js
@@ -70,7 +70,7 @@
 
 #HSLIDE
 
-### Installation steps - provision sd card
+#### Installation steps - provision sd card
 * Put some Raspian distro on a flash card
 ```
 dd if=2017-08-18-compass.img of=/dev/sdc bs=1M
@@ -83,7 +83,7 @@ umount /dev/sdc1
 
 #VSLIDE
 
-### Installation steps - initial boot
+#### Installation steps - initial boot
 * boot sd card in an RPi and update files system
 ```
 sudo su
@@ -96,7 +96,7 @@ shutdown -r now
 
 #VSLIDE
 
-### Installation steps - core
+#### Installation steps - core
 ```
 git clone https://github.com/nwdigitalradio/n7nix
 ```
@@ -138,7 +138,7 @@ mheard
 ```
 #VSLIDE
 
-### Installation steps - tracker
+#### Installation steps - tracker
 ```
 # Not root
 cd n7nix/tracker
@@ -146,21 +146,30 @@ cd n7nix/tracker
 ```
 #VSLIDE
 
-### Installation steps - tracker
+#### Installation steps - tracker
 * Downloads & builds
   * libfab
   * libiniparser
   * json-c
+
 * Downloads
   * jQuery
   * node.js
-* Sets up iptables to prevent mDNS multicast (avahi)
-  * Apple's zeroconf broadcasts on all network interfaces
+  * npm
+
+#VSLIDE
+
+#### Installation steps - iptables
+
+* iptables to prevent mDNS multicast on AX.25 interface
+  * Avahi broadcasts on all network interfaces
+  * Apple zeroconf/bonjour
 
 
 #HSLIDE
 
-### Run tracker
+#### Run tracker
+
 * Open a browser
 ```
 # local
@@ -172,6 +181,9 @@ your_RPi_IP_Adress:8081/tracker.html
 #VSLIDE
 
 #### Debug tracker
+
+* Open a console
+
 ```
 systemctl status tracker
 ```
