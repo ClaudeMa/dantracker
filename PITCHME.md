@@ -26,8 +26,10 @@
 #### References to original kk7ds/dantracker
 
 * [My APRS Tracker Project Youtube](https://www.youtube.com/watch?v=JOaTdWAwdUQ)
+  * https://www.youtube.com/watch?v=JOaTdWAwdUQ)
 
 * [A custom APRS tracker with a real screen](http://www.danplanet.com/blog/?s=a%20custom%20aprs%20tracker%20with%20a%20real%20screen)
+  * http://www.danplanet.com/blog/?s=a%20custom%20aprs%20tracker%20with%20a%20real%20screen)
 
 #HSLIDE
 
@@ -38,6 +40,9 @@
 * Adds messaging & control screens
   * control screen: power down & halt or reset
 * Version that controls paclink-unix
+
+* Rotating beacon messages
+*
 
 #HSLIDE
 ![Tracker APRS screen 1](assets/tracker-aprs-20170901.png)
@@ -50,3 +55,117 @@
 
 #HSLIDE
 ![Tracker CTRL screen](assets/tracker-ctrl-20170901.png)
+
+#HSLIDE
+## Installation steps - provision sd card
+* Put some Raspian distro on a flash card
+```
+dd if=2017-08-18-compass.img of=/dev/sdc bs=1M
+mount /dev/sdc1 /media/flash
+cd /media/flash
+touch ssh
+cd
+umount /dev/sdc1
+```
+
+#VSLIDE
+## Installation steps - initial boot
+* boot sd card in an RPi and update files system
+```
+sudo su
+apt-get update
+apt-get upgrade -y
+apt-get install git
+# reboot
+shutdown -r now
+```
+
+#VSLIDE
+## Installation steps - core
+```
+git clone https://github.com/nwdigitalradio/n7nix
+```
+* Installs direwolf & ax.25
+```
+cd n7nix/config
+sudo su
+./core_install.sh
+./app_config.sh core
+# reboot
+shutdown -r now
+```
+
+#VSLIDE
+##Installation - optional: add user
+```
+sudo su
+adduser <new_user>
+usermod -aG adm,mail,dialout,sudo,audio,plugdev,users,input,netdev,gpio,i2c,spi <new_user>
+su <new_user>
+cd
+rsync -av /home/pi/bin .
+rsync -av /home/pi/n7nix .
+```
+
+#VSLIDE
+#Installation - core verification
+```
+tail -f /var/log/syslog
+cd ~/bin
+./ax25-status
+./piver.sh
+./sndcard.sh
+netstat --ax25
+listen -at
+mheard
+```
+#VSLIDE
+
+## Installation steps - tracker
+```
+# Not root
+cd n7nix/tracker
+./tracker_install.sh
+```
+#VSLIDE
+## Installation steps - tracker
+* Downloads & builds
+  * libfab
+  * libiniparser
+  * json-c
+* Downloads
+  * jQuery
+  * node.js
+* Sets up iptables to prevent mDNS multicast (avahi)
+  * Apple's zeroconf broadcasts on all network interfaces
+
+#VSLIDE
+## Installation steps - tracker verify
+
+
+#HSLIDE
+
+## Run tracker
+* Open a browser
+```
+# local
+localhost:8081/tracker.html
+# remote
+your_RPi_IP_Adress:8081/tracker.html
+```
+
+#VSLIDE
+## Debug tracker
+```
+systemctl status tracker
+# become root
+screen -ls
+```
+```
+There is a screen on:
+	766.Tracker	(09/06/2017 11:09:29 AM)	(Detached)
+1 Socket in /var/run/screen/S-root.
+```
+```
+screen -x 766.Tracker
+```
