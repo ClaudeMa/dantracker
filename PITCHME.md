@@ -1,7 +1,7 @@
 ## dantracker
 
 ##### Basil Gunn N7NIX,  September 2017
-* https://gitpitch.com/n7nix/dantracker
+* https://github.com/n7nix/dantracker
 
 #HSLIDE
 
@@ -20,9 +20,11 @@
 ### What is n7nix/dantracker, udrtracker, nixtracker, uat
 
 #HSLIDE
+
 ![Dan Smith](assets/dan_smith.jpg)
 
 #HSLIDE
+
 #### References to original kk7ds/dantracker
 
 * [My APRS Tracker Project Youtube](https://www.youtube.com/watch?v=JOaTdWAwdUQ)
@@ -51,18 +53,23 @@
 * Used valgrind to fix a number of memory leaks
 
 #HSLIDE
+
 ![Tracker APRS screen 1](assets/tracker-aprs-20170906_1.png)
 
 #HSLIDE
+
 ![Tracker APRS screen 2](assets/tracker-aprs-20170906_2.png)
 
 #HSLIDE
+
 ![Tracker MSG screen](assets/tracker-msg-20170901.png)
 
 #HSLIDE
+
 ![Tracker CTRL screen](assets/tracker-ctrl-20170901.png)
 
 #HSLIDE
+
 ### Installation steps - provision sd card
 * Put some Raspian distro on a flash card
 ```
@@ -75,6 +82,7 @@ umount /dev/sdc1
 ```
 
 #VSLIDE
+
 ### Installation steps - initial boot
 * boot sd card in an RPi and update files system
 ```
@@ -87,6 +95,7 @@ shutdown -r now
 ```
 
 #VSLIDE
+
 ### Installation steps - core
 ```
 git clone https://github.com/nwdigitalradio/n7nix
@@ -102,7 +111,8 @@ shutdown -r now
 ```
 
 #VSLIDE
-###Installation - optional: add user
+
+#### Installation - optional: add user
 ```
 sudo su
 adduser <new_user>
@@ -114,9 +124,10 @@ rsync -av /home/pi/n7nix .
 ```
 
 #VSLIDE
-#Installation - core verification
+
+#### Installation - core verification
 ```
-tail -f /var/log/syslog
+tail -f /var/log/direwolf/direwolf.log
 cd ~/bin
 ./ax25-status
 ./piver.sh
@@ -134,6 +145,7 @@ cd n7nix/tracker
 ./tracker_install.sh
 ```
 #VSLIDE
+
 ### Installation steps - tracker
 * Downloads & builds
   * libfab
@@ -144,9 +156,6 @@ cd n7nix/tracker
   * node.js
 * Sets up iptables to prevent mDNS multicast (avahi)
   * Apple's zeroconf broadcasts on all network interfaces
-
-#VSLIDE
-### Installation steps - tracker verify
 
 
 #HSLIDE
@@ -161,9 +170,12 @@ your_RPi_IP_Adress:8081/tracker.html
 ```
 
 #VSLIDE
-### Debug tracker
+
+#### Debug tracker
 ```
 systemctl status tracker
+```
+```
 # become root
 screen -ls
 ```
