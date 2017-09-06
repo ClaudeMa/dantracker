@@ -63,7 +63,7 @@
 ![Tracker CTRL screen](assets/tracker-ctrl-20170901.png)
 
 #HSLIDE
-## Installation steps - provision sd card
+### Installation steps - provision sd card
 * Put some Raspian distro on a flash card
 ```
 dd if=2017-08-18-compass.img of=/dev/sdc bs=1M
@@ -75,7 +75,7 @@ umount /dev/sdc1
 ```
 
 #VSLIDE
-## Installation steps - initial boot
+### Installation steps - initial boot
 * boot sd card in an RPi and update files system
 ```
 sudo su
@@ -87,7 +87,7 @@ shutdown -r now
 ```
 
 #VSLIDE
-## Installation steps - core
+### Installation steps - core
 ```
 git clone https://github.com/nwdigitalradio/n7nix
 ```
@@ -102,7 +102,7 @@ shutdown -r now
 ```
 
 #VSLIDE
-##Installation - optional: add user
+###Installation - optional: add user
 ```
 sudo su
 adduser <new_user>
@@ -127,14 +127,14 @@ mheard
 ```
 #VSLIDE
 
-## Installation steps - tracker
+### Installation steps - tracker
 ```
 # Not root
 cd n7nix/tracker
 ./tracker_install.sh
 ```
 #VSLIDE
-## Installation steps - tracker
+### Installation steps - tracker
 * Downloads & builds
   * libfab
   * libiniparser
@@ -146,12 +146,12 @@ cd n7nix/tracker
   * Apple's zeroconf broadcasts on all network interfaces
 
 #VSLIDE
-## Installation steps - tracker verify
+### Installation steps - tracker verify
 
 
 #HSLIDE
 
-## Run tracker
+### Run tracker
 * Open a browser
 ```
 # local
@@ -161,7 +161,7 @@ your_RPi_IP_Adress:8081/tracker.html
 ```
 
 #VSLIDE
-## Debug tracker
+### Debug tracker
 ```
 systemctl status tracker
 # become root
@@ -175,3 +175,17 @@ There is a screen on:
 ```
 screen -x 766.Tracker
 ```
+
+#HSLIDE
+
+#### This presentation
+
+* https://gitpitch.com/n7nix/dantracker
+
+#### Source repo
+
+* https://github.com/n7nix/dantracker
+
+#### Install repo
+
+* https://github.com/nwdigitalradio/n7nix/tree/master/tracker
