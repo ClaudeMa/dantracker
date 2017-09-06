@@ -71,7 +71,7 @@
 #HSLIDE
 
 #### Installation steps - provision sd card
-* Put some Raspian distro on a flash card
+* It's an RPi, put some Raspbian distro on a flash card
 ```
 dd if=2017-08-18-compass.img of=/dev/sdc bs=1M
 mount /dev/sdc1 /media/flash
@@ -170,6 +170,8 @@ cd n7nix/tracker
 
 #### Run tracker
 
+* tracker autostarts from systemd on boot
+
 * Open a browser
 ```
 # local
@@ -180,7 +182,7 @@ your_RPi_IP_Adress:8081/tracker.html
 
 #VSLIDE
 
-#### Debug tracker
+#### Debug tracker - console
 
 * Open a console
 
@@ -199,6 +201,14 @@ There is a screen on:
 ```
 screen -x 766.Tracker
 ```
+
+#VSLIDE
+
+#### Debug tracker - browser
+
+* In browser:
+  * Click _Msg_ tab & look at _Enter Message_
+  * Click _Ctrl_ tab & look at _Debug window_
 
 #HSLIDE
 
