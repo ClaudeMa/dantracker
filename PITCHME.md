@@ -35,14 +35,31 @@
 
 #HSLIDE
 
+#### References to n7nix/dantracker
+
+* [Eric Schott PA0ESH n7nix tracker on Ubuntu workstation](https://www.youtube.com/watch?v=Pg-buSHbZVc)
+
+#HSLIDE
+
 #### Features of dantracker
-* Rotating beacon messages
+* Displays the following:
+  * Received callsign & APRS icon
+  * History of received callsigns heard
+  * GPS & position status, beacon period
+  * Digipeter quality bar graph
+  * Telemetry
+* When there is activity
+  * Receive frame flashes green
+  * Transmit beacon flashes GPS frame red
+* Configurable Rotating beacon status messages
 
 
 #HSLIDE
 
 #### Differences between n7nix & kk7ds trackers
 
+* kk7ds displays telemetry in the last panel
+  * n7nix displays last weather beacon
 * kk7ds uses LCD display, GTK+
   * n7nix uses browser, node.js
 * Adds APRS messaging & control screens
@@ -148,7 +165,7 @@ cd n7nix/tracker
 
 #### Installation steps - tracker
 * Downloads & builds
-  * libfab
+  * libfap
   * libiniparser
   * json-c
 
