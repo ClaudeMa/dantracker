@@ -13,7 +13,7 @@
   * Adds APRS messaging
   * Adds shutdown reset control from the app.
 * The server part can run on an RPi (kk7ds can as well)
-  * The server part can run on any browser on the network
+  * The client part can run on any browser on the network
 
 ### How to run
 
