@@ -118,6 +118,8 @@ shutdown -r now
 git clone https://github.com/nwdigitalradio/n7nix
 ```
 * Installs direwolf & ax.25
+* systemd service files for auto start
+
 ```
 cd n7nix/config
 sudo su
@@ -226,6 +228,18 @@ screen -x 766.Tracker
 * In browser:
   * Click _Msg_ tab & look at _Enter Message_
   * Click _Ctrl_ tab & look at _Debug window_
+
+#HSLIDE
+
+#### Programs in local bin
+
+* tracker-up tracker-down tracker-restart
+* ax25-start ax25-stop ax25-status
+* piver.sh sysver.sh udrcver.sh
+* iptable-check.sh
+```
+./rmslist.sh 30 cn97dl
+```
 
 #HSLIDE
 
