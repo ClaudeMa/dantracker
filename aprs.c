@@ -32,6 +32,7 @@
 
 extern char *__progname;
 extern const char *getprogname(void);
+time_t convrt_gps_to_epoch(struct state *state);
 
 void fap_free_wrapper(char *dispStr,  struct state *state, fap_packet_t *fap)
 {
@@ -1229,17 +1230,33 @@ int parse_gps_nmea_string(struct state *state)
         return 0;
 }
 
+/*
+ * Display UTC with dst correction from GPS time
+ *  NEMA $GPGGA is in format HHMMSS
+ */
 int display_gps_info(struct state *state)
 {
+
         char buf[512];
         char timestr[32];
+        time_t epochtime;
         struct posit *mypos = MYPOS(state);
         const char *status = mypos->qual != 0 ?
                              "Locked" :
                              "<span background='red'>INVALID</span>";
 
-        strftime(timestr, sizeof(timestr), "%H:%M:%S",
-                 localtime(&mypos->tstamp));
+        switch(state->conf.gps_type_int) {
+                case GPS_TYPE_GPSD:
+                        strftime(timestr, sizeof(timestr), "%H:%M:%S",
+                                 localtime(&mypos->epochtime));
+                        break;
+                case GPS_TYPE_SERIAL:
+                        epochtime = convrt_gps_to_epoch(state);
+                        strftime(timestr, sizeof(timestr), "%H:%M:%S",
+                                 localtime(&epochtime));
+
+                        break;
+        }
 
         sprintf(buf, "%7.5f%c %8.5f%c   %s   %s: %2i sats",
                   fabs(mypos->lat), mypos->lat > 0 ? 'N' : 'S',
@@ -1265,17 +1282,89 @@ int display_gps_info(struct state *state)
 }
 
 /*
+ * Convert GPS time from serial GPS to Unix epoch time
+ */
+time_t convrt_gps_to_epoch(struct state *state)
+{
+        struct posit *mypos = MYPOS(state);
+        int tstamp = mypos->tstamp;
+        int dstamp = mypos->dstamp;
+        time_t gpstime, machinetime;
+        int hour, min, sec;
+        int day, mon, year;
+        struct tm gtm;
+
+        /* seed the time_t struct with current machine time
+         *  - then change with gps time
+         */
+        if((machinetime = time(NULL)) == -1) {
+                fprintf(stderr, "%s: Error getting machine time: %s\n", __FUNCTION__, strerror(errno));
+                return(-1);
+        }
+
+        gmtime_r(&machinetime, &gtm);
+
+        hour = (tstamp / 10000);
+        min = (tstamp / 100) % 100;
+        sec = tstamp % 100;
+
+        day = (dstamp / 10000);
+        mon = (dstamp / 100) % 100;
+        year = dstamp % 100;
+        /*
+         * convert broken down time (struct
+         * tm) to unix calendar time (time_t)
+         */
+        gtm.tm_sec = sec;
+        gtm.tm_min = min;
+        gtm.tm_hour = hour;
+        gtm.tm_mday = day;
+        gtm.tm_mon = mon-1; /* number of months since January 0-11 */
+        gtm.tm_year = year+100; /* years since 1900 */
+
+        /*
+         * During Daylight saving subtract an hour.
+         */
+        gpstime = mktime(&gtm);
+        if ( gpstime != -1 ) {
+                gpstime += gtm.tm_gmtoff;
+                if(gtm.tm_isdst) {
+                        gpstime -=3600;
+                }
+        }
+
+        if(state->debug.verbose_level > 3) {
+
+                struct tm lt;
+
+                localtime_r(&machinetime, &lt);
+
+                if (lt.tm_isdst < 0) {
+                        printf("Can not determine if Daylight Saving Time is in effect\n");
+                } else {
+                        printf("DST is %s in effect\n", lt.tm_isdst ? "" : "NOT");
+                }
+
+                printf("\ngps hour: %d, min: %d, sec: %d\n", hour, min, sec);
+                localtime_r(&gpstime, &gtm);
+                printf("loc debug: hr: %d, mn: %d, sc: %d, day: %d, mon: %d, yr: %d off: %ld [%ld]\n",
+                       lt.tm_hour, lt.tm_min, lt.tm_sec, lt.tm_mday, lt.tm_mon, lt.tm_year, lt.tm_gmtoff, machinetime);
+                printf("gps debug: hr: %d, mn: %d, sc: %d, day: %d, mon: %d, yr: %d off: %ld [%ld]\n",
+                       gtm.tm_hour, gtm.tm_min, gtm.tm_sec, gtm.tm_mday, gtm.tm_mon, gtm.tm_year, gtm.tm_gmtoff, gpstime);
+                printf("Time: machine %s, gps %s\n", asctime(&lt), asctime(&gtm));
+        }
+
+        return gpstime;
+}
+
+/*
  * Set system time using GPS time
  */
 int set_time(struct state *state)
 {
         struct posit *mypos = MYPOS(state);
-        time_t tstamp = mypos->tstamp;
-        time_t dstamp = mypos->dstamp;
-        int hour, min, sec;
-        int day, mon, year;
+        time_t epochtime = mypos->epochtime;
         time_t gpstime, machinetime;
-        struct tm *lt, *gtm;
 
         /*
          * Only set time if a sufficient number of GPS satellites have
@@ -1313,52 +1402,11 @@ int set_time(struct state *state)
          */
         if(state->conf.gps_type_int == GPS_TYPE_GPSD) {
 
-                gpstime = tstamp;
+                gpstime = epochtime;
 
         } else if(state->conf.gps_type_int == GPS_TYPE_SERIAL) {
+                gpstime = convrt_gps_to_epoch(state);
 
-                lt  = gmtime(&machinetime);
-                gtm = gmtime(&machinetime);
-
-                hour = (tstamp / 10000);
-                min = (tstamp / 100) % 100;
-                sec = tstamp % 100;
-
-                day = (dstamp / 10000);
-                mon = (dstamp / 100) % 100;
-                year = dstamp % 100;
-                /*
-                 * convert broken down time (struct
-                 * tm) to unix calendar time (time_t)
-                 */
-                gtm->tm_sec = sec;
-                gtm->tm_min = min;
-                gtm->tm_hour = hour;
-                gtm->tm_mday = day;
-                gtm->tm_mon = mon-1; /* number of months since January 0-11 */
-                gtm->tm_year = year+100; /* years since 1900 */
-
-                gpstime = mktime(gtm) + gtm->tm_gmtoff;
-
-                if (lt->tm_isdst < 0) {
-                        printf("Can not determine if Daylight Saving Time is in effect\n");
-                } else {
-                        printf("DST is %s in effect\n", lt->tm_isdst ? "" : "NOT");
-                }
-                /*
-                 * During Daylight saving subtract an hour.
-                 */
-                if(lt->tm_isdst) {
-                        gpstime -=3600;
-                }
-
-                if(state->debug.verbose_level > 3) {
-                        printf("\nloc debug: hr: %d, mn: %d, sc: %d, day: %d, mon: %d, yr: %d off: %ld [%ld]\n",
-                               lt->tm_hour, lt->tm_min, lt->tm_sec, lt->tm_mday, lt->tm_mon, lt->tm_year, lt->tm_gmtoff, machinetime);
-                        printf("gps debug: hr: %d, mn: %d, sc: %d, day: %d, mon: %d, yr: %d off: %ld [%ld]\n",
-                               gtm->tm_hour, gtm->tm_min, gtm->tm_sec, gtm->tm_mday, gtm->tm_mon, gtm->tm_year, gtm->tm_gmtoff, gpstime);
-                        printf("Time: machine %s, gps %s\n", asctime(lt), asctime(gtm));
-                }
 
         } else {
 
@@ -1473,13 +1521,14 @@ int handle_gps_data(struct state *state)
                         state->mypos_idx = (state->mypos_idx + 1) % KEEP_POSITS;
                         mypos = MYPOS(state);
                         /* NMEA GPGAA sentence breaks time into 2 items:
-                         * time: mmhhss.xxx (xxx = millisecnds)
+                         * time: hhmmss.xxx (xxx = millisecnds)
                          * dtime: ddmmyy
                          *
                          * binary data has one double containing Unix time in seconds with fractional part
                          */
                         mypos->dstamp = 0;
-                        mypos->tstamp = curtime;
+                        mypos->tstamp = 0;
+                        mypos->epochtime = curtime;
                         mypos->lat = pgpsd->fix.latitude;
                         mypos->lon = pgpsd->fix.longitude;
                         mypos->alt = pgpsd->fix.altitude;
