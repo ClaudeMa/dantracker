@@ -193,7 +193,7 @@ var server = http.createServer(function(request, response) {
 	// Not important for us. We're writing WebSocket server, not HTTP server
     console.log((new Date()) + ' http server Received request for ' + request.url);
     response.writeHead(404);
-    response.end();			
+    response.end();
 });
 server.listen(webSocketPort, function() {
 	console.log((new Date()) + " Web Socket Server is listening on port " + webSocketPort);
@@ -214,6 +214,11 @@ function originIsAllowed(origin) {
 }
 
 wsClients.push(wsServer);
+
+wsServer.on('error', function (exc) {
+	sys.log("websocket server: ignoring exception: " + exc);
+	console.log("websocket server: ignoring exception: " + exc);
+});
 
 // This callback function is called every time someone
 // tries to connect to the WebSocket server
@@ -246,7 +251,6 @@ wsServer.on('request', function(request) {
 
 //	showObjElements(request);
 	console.log('OPENING connection: id: ' + connection.id + ', index: ' + index + ', ip: ' + connection.remoteAddress + ', socket ip: ' + 	connection.socket.remoteAddress + ', connections open: ' + trkClients.length);
-	
 
 	// user sent some message
         connection.on('message', function(message) {
@@ -350,6 +354,12 @@ wsServer.on('request', function(request) {
 		colors.push(userColor);
 
 	}); //connection on close
+	connection.on('error', function (exc) {
+		sys.log("websocket connection: ignoring exception: " + exc);
+		console.log("websocket connection: ignoring exception: " + exc);
+	});
+
+
 }); // wsServer on
 
 /**
