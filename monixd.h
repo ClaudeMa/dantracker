@@ -35,12 +35,6 @@
 #endif
 #include <linux/if_ether.h>
 
-#if 0
-#include "mondefs.h"
-#include "monutil.h"
-#endif
-
-
 /* in monixd */
 /* extern struct t_client client[MAXCLIENTS]; */
 extern int nClient ;

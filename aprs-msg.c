@@ -379,8 +379,8 @@ void handle_aprsMessages(struct state *state, fap_packet_t *fap, char *packet) {
                                 pr_debug("Found ack [%s] with index: %d in this msg [%s]\n",
                                          tokstr, atoi(tokstr+4), packet);
                                 return;
-                        } 
-                                
+                        }
+
                         /* Here for message sent to our callsign */
                         pr_debug("!!! send_msg_ack to %s, msg:%s\n", fap->src_callsign, fap->message );
                         pr_debug("Receiving aprs message from %s requiring an ack id: %s\n",
@@ -398,7 +398,7 @@ void handle_aprsMessages(struct state *state, fap_packet_t *fap, char *packet) {
                                 printf(", for %s message\n", isnew ? "new" : "OLD");
                         } else {
                                 /*  - fix libfap */
-                                
+
                                 pr_debug("Would have sent ack to: [%s] but message_id was NULL\n", packet);
                                 tokstr=strstr(packet,"{");
                                 if(tokstr != NULL) {

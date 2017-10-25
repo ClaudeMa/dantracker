@@ -29,7 +29,7 @@ GTK_LIBS = `pkg-config --libs 'gtk+-2.0'`
 TARGETS += ui uiclient
 endif
 
-LIB_GPS = 
+LIB_GPS =
 ifeq ($(GPSD_ENABLE), YES)
 LIB_GPS = -lgps
 CFLAGS+= -DHAVE_GPSD_LIB

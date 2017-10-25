@@ -8,7 +8,7 @@
 
 * This code is a fork of Dan Smith's dantracker @ https://github.com/kk7ds/dantracker.
 * Some of the differences between this code (n7nix) and the kk7ds code are:
-  * Runs in a browser using node.js & websockets
+  * Display runs in a browser using node.js & websockets
     * kk7ds displays using GTK+
   * Adds APRS messaging
   * Adds shutdown reset control from the app.
