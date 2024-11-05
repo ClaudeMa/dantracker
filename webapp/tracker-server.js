@@ -461,8 +461,8 @@ connect.createServer(
 ).listen(HTMLPORT);
 */
 
-var serveStatic = require(global_module_dir + 'serve-static');
-var finalhandler = require(global_module_dir + 'finalhandler');
+var serveStatic = require('serve-static');
+var finalhandler = require('finalhandler');
 
 var app = connect();
 var serve = serveStatic(__dirname, {'index': ['tracker.html']})

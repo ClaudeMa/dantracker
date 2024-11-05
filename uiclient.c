@@ -11,7 +11,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdbool.h>
-#include <json/json.h>
+#include <json-c/json.h>
 
 #include "aprs.h"
 #include "ui.h"

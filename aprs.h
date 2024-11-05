@@ -14,7 +14,7 @@
 
 #ifndef CONSOLE_SPY
 #include <fap.h>
-#include <iniparser.h>
+#include <iniparser/iniparser.h>
 #endif /* NOT CONSOLE_SPY */
 #include <stdbool.h>
 #include <inttypes.h>

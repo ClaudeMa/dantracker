@@ -19,7 +19,7 @@
 #include <netdb.h>
 #include <ctype.h>
 #include <time.h>
-#include <json/json.h>
+#include <json-c/json.h>
 #include <netinet/if_ether.h> /* only for ETH_P_AX25, canned packets */
 
 #include "util.h"
@@ -1365,6 +1365,7 @@ int set_time(struct state *state)
         struct posit *mypos = MYPOS(state);
         time_t epochtime = mypos->epochtime;
         time_t gpstime, machinetime;
+	struct timespec ts;
 
         /*
          * Only set time if a sufficient number of GPS satellites have
@@ -1425,7 +1426,10 @@ int set_time(struct state *state)
          * Only set machine time if difference is greater than 1 second.
          */
         if(abs(gpstime - machinetime) > 2) {
-                stime(&gpstime);
+                //stime(&gpstime);
+		ts.tv_sec=gpstime;
+		ts.tv_nsec=0;
+		clock_settime(CLOCK_REALTIME, &ts);
         }
 
         state->last_time_set = time(NULL);

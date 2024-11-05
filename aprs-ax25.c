@@ -34,7 +34,7 @@
 #include <byteswap.h>
 
 #ifndef CONSOLE_SPY
-#include <json/json.h>
+#include <json-c/json.h>
 #endif /* NOT CONSOLE_SPY */
 
 #define DEBUG 1

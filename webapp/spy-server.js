@@ -264,8 +264,10 @@ console.log((new Date()) + ' UI Socket Server listening on ' + NETHOST +': '+ NE
  */
 
 var connect = require(global_module_dir + 'connect');
-connect.createServer(
-                     connect.static(__dirname),
+var serveStatic = require('serve-static');
+
+serveStatic(
+                     serveStatic('/tmp'), //__dirname),
                      function(req, res){
         res.setHeader('Content-Type', 'text/html');
         res.end('You need a path, try /spy.html\n');
